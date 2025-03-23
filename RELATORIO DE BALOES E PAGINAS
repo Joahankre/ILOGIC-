@@ -1,0 +1,166 @@
+Sub Main()
+    ' Verifica se o documento ativo é um documento de desenho
+    Dim drawDoc As DrawingDocument
+    Dim filename As String = "C:\Temp\BalloonReport.txt"
+
+    ' Verifica o tipo de documento ativo
+    If ThisDoc.Document.DocumentType <> kDrawingDocumentObject Then
+        MessageBox.Show("Este não é um documento de desenho. A regra só pode ser executada em um arquivo de desenho.", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        Return
+    End If
+
+    ' Se for um documento de desenho, atribui à variável drawDoc
+    drawDoc = ThisDoc.Document
+
+    ' Declara o StreamWriter
+    Dim writer As System.IO.StreamWriter
+
+    Try
+        ' Cria o StreamWriter para gravar o arquivo
+        writer = System.IO.File.CreateText(filename)
+
+        ' Imprime o cabeçalho do relatório
+        writer.WriteLine("==== Relatório de Balões ====")
+        Debug.Print("==== Relatório de Balões ====")
+
+        ' Itera através das folhas do desenho
+        For Each drawSheet As Sheet In drawDoc.Sheets
+            ' Imprime o nome da folha
+            Debug.Print("  Folha: " & drawSheet.Name)
+            writer.WriteLine("  Folha: " & drawSheet.Name)
+
+            ' Obtém o Part Number da folha
+            Dim partNumber As String = GetPartNumberFromSheet(drawSheet)
+            If partNumber <> "" Then
+                writer.WriteLine("    Part Number da folha: " & partNumber)
+                Debug.Print("    Part Number da folha: " & partNumber)
+            End If
+
+            ' Obtém a borda da folha
+            Dim border As DefaultBorder = drawSheet.Border
+
+            ' Determina as larguras das zonas
+            Dim XZoneWidth As Double = drawSheet.Width / border.HorizontalZoneCount
+            Dim YZoneWidth As Double = drawSheet.Height / border.VerticalZoneCount
+
+            ' Determina se as zonas são numéricas
+            Dim XZoneIsNumber As Boolean = (border.HorizontalZoneLabelMode = kBorderLabelModeNumeric)
+            Dim YZoneIsNumber As Boolean = (border.VerticalZoneLabelMode = kBorderLabelModeNumeric)
+
+            ' Itera através dos balões nesta folha
+            For Each drawBalloon As Balloon In drawSheet.Balloons
+                ' Inverte a coordenada X para o cálculo da zona
+                Dim newXPosition As Double = drawSheet.Width - drawBalloon.Position.X
+
+                ' Determina a zona X
+                Dim XZone As Integer = Int(newXPosition / XZoneWidth)
+
+                ' Obtém a zona X como uma string
+                Dim XZoneValue As String
+                If XZoneIsNumber Then
+                    XZoneValue = (XZone + 1).ToString()
+                Else
+                    XZoneValue = Chr(XZone + 65)
+                End If
+
+                ' Determina a zona Y
+                Dim YZone As Integer = Int(drawBalloon.Position.Y / YZoneWidth)
+
+                ' Obtém a zona Y como uma string
+                Dim YZoneValue As String
+                If YZoneIsNumber Then
+                    YZoneValue = (YZone + 1).ToString()
+                Else
+                    YZoneValue = Chr(YZone + 65)
+                End If
+
+                ' Obter o número do balão através de BalloonValueSets
+                Dim balloonNumber As String = GetBalloonNumber(drawBalloon)
+
+                ' Obter o Part Number do balão
+                Dim partNumberForBalloon As String = GetPartNumberFromBalloon(drawBalloon)
+
+                ' Imprime os resultados para este conjunto de valores, incluindo o Part Number da peça associada ao balão
+                Dim output As String
+                output = "    Balão: " & balloonNumber & ", (" & XZoneValue & ", " & YZoneValue & ")"
+                output &= " - Part Number da Peça: " & partNumberForBalloon
+                output &= " - Part Number da Folha: " & partNumber
+                Debug.Print(output)
+                writer.WriteLine(output)
+            Next
+        Next
+
+    Finally
+        ' Assegura que o StreamWriter seja fechado, mesmo se ocorrer um erro
+        If writer IsNot Nothing Then
+            writer.Close()
+        End If
+
+        ' Mostra uma mensagem ao usuário informando onde o relatório foi salvo
+        MessageBox.Show("Relatório escrito em: """ & filename & """")
+    End Try
+End Sub
+
+' Função para obter o número do balão a partir de BalloonValueSets
+Private Function GetBalloonNumber(drawBalloon As Balloon) As String
+    Dim balloonNumber As String = ""
+
+    ' Verifica se o balão tem valores
+    If drawBalloon.BalloonValueSets.Count > 0 Then
+        ' Acessa o primeiro BalloonValueSet
+        Dim balloonValueSet As BalloonValueSet = drawBalloon.BalloonValueSets.Item(1)
+        
+        ' Obtém o número do balão a partir do valor do BalloonValueSet
+        balloonNumber = balloonValueSet.Value
+    End If
+
+    Return balloonNumber
+End Function
+
+' Função para obter o Part Number da peça associada ao balão
+Private Function GetPartNumberFromBalloon(drawBalloon As Balloon) As String
+    Dim partNumber As String = ""
+
+    ' Acessa o componente associado ao balão
+    If drawBalloon.BalloonValueSets.Count > 0 Then
+        Dim balloonValueSet As BalloonValueSet = drawBalloon.BalloonValueSets.Item(1)
+        
+        ' Verifica se o balão tem documentos de referência associados
+        If balloonValueSet.ReferencedFiles.Count > 0 Then
+            ' Obtém o documento referenciado
+            Dim referencedDoc As Document = balloonValueSet.ReferencedFiles.Item(1).ReferencedDocument
+
+            ' Verifica se o documento é do tipo peça
+            If referencedDoc.DocumentType = kPartDocumentObject Then
+                ' Tenta acessar o "Part Number"
+                Try
+                    partNumber = referencedDoc.PropertySets.Item("Design Tracking Properties").Item("Part Number").Value
+                Catch ex As Exception
+                    partNumber = "Não disponível"
+                    Debug.Print("Erro ao acessar o Part Number do balão: " & ex.Message)
+                End Try
+            End If
+        End If
+    End If
+
+    Return partNumber
+End Function
+
+' Função para obter o Part Number de uma folha, se possível
+Private Function GetPartNumberFromSheet(drawSheet As Sheet) As String
+    ' Acessa as referências de montagem ou as peças associadas à folha
+    Dim sheetPartNumber As String = ""
+
+    For Each oView As DrawingView In drawSheet.DrawingViews
+        ' Acessa as referências de componentes associados à folha
+        If oView.ReferencedDocumentDescriptor IsNot Nothing Then
+            Dim refDoc As Document = oView.ReferencedDocumentDescriptor.ReferencedDocument
+            If refDoc.DocumentType = kPartDocumentObject Then
+                ' Se for uma peça, acessa o Part Number
+                sheetPartNumber = refDoc.PropertySets.Item("Design Tracking Properties").Item("Part Number").Value
+            End If
+        End If
+    Next
+
+    Return sheetPartNumber
+End Function

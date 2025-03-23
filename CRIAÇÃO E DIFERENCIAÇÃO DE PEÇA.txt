@@ -1,0 +1,114 @@
+Public Class ThisRule
+      
+    ' Função principal que executa o código
+    Sub Main()
+
+        ' Obtém o nome do arquivo da primeira peça
+        Dim partName1 As String = getFileName()
+
+        ' Obtém o nome do arquivo da segunda peça
+        Dim partName2 As String = getFileName()
+
+        ' Cria a diferença entre as peças (adicionadas e subtraídas)
+        Dim added As String = createDiff(partName2, partName1, True)
+        Dim substarcted As String = createDiff(partName1, partName2, False)
+
+        ' Cria um novo documento de peça
+        Dim doc As PartDocument = ThisApplication.Documents.Add(DocumentTypeEnum.kPartDocumentObject)
+
+        ' Obtém os componentes derivados da peça
+        Dim derivedPartComponents = doc.ComponentDefinition.ReferenceComponents.DerivedPartComponents
+
+        ' Cria a definição da parte derivada para as peças adicionadas
+        Dim derivedPartDef As DerivedPartUniformScaleDef
+        derivedPartDef = derivedPartComponents.CreateUniformScaleDef(added)
+        derivedPartComponents.Add(derivedPartDef)
+
+        ' Cria a definição da parte derivada para as peças subtraídas
+        derivedPartDef = derivedPartComponents.CreateUniformScaleDef(substarcted)
+        derivedPartComponents.Add(derivedPartDef)
+    End Sub
+
+    ' Função que cria a diferença entre duas peças
+    Public Function createDiff(fileName1 As String, fileName2 As String, isAdded As Boolean) As String
+        ' Abre o arquivo da primeira peça
+        Dim doc As PartDocument = ThisApplication.Documents.Open(fileName1, True)
+
+        ' Obtém informações sobre o arquivo, como o diretório e o nome
+        Dim fileInfo As IO.FileInfo = New IO.FileInfo(doc.FullFileName)
+        Dim newFileName = IO.Path.Combine(
+            fileInfo.DirectoryName,
+            fileInfo.Name.Replace(fileInfo.Extension, "") +
+            "_dif" +
+            fileInfo.Extension)
+
+        ' Salva o arquivo com um novo nome
+        doc.SaveAs(newFileName, False)
+
+        ' Cria a definição da parte derivada para a segunda peça
+        Dim derivedPartDef As DerivedPartUniformScaleDef
+        derivedPartDef = doc.ComponentDefinition.ReferenceComponents.DerivedPartComponents.CreateUniformScaleDef(fileName2)
+
+        ' Define o corpo da parte derivada como não sólido
+        derivedPartDef.BodyAsSolidBody = False
+
+        ' Adiciona a parte derivada ao componente
+        Dim derivedPart As DerivedPartComponent
+        derivedPart = doc.ComponentDefinition.ReferenceComponents.DerivedPartComponents.Add(derivedPartDef)
+        ' Desfaz o vínculo com o arquivo original
+        derivedPart.BreakLinkToFile()
+
+        ' Obtém a ferramenta de corte a partir do primeiro corpo de superfície
+        Dim splitTool As SurfaceBody = doc.ComponentDefinition.WorkSurfaces.Item(1)._SurfaceBody
+        splitTool.Visible = False
+
+        ' Obtém o corpo da peça a ser cortado
+        Dim body As SurfaceBody = doc.ComponentDefinition.SurfaceBodies.Item(1)
+        Try
+            ' Tenta realizar o corte da peça
+            doc.ComponentDefinition.Features.SplitFeatures.TrimSolid(splitTool, body, False)
+        Catch ex As Exception
+            ' Caso ocorra erro, tenta novamente com outra abordagem
+            doc.ComponentDefinition.Features.SplitFeatures.TrimSolid(splitTool, body, True)
+        End Try
+
+        ' Define o estilo de renderização dependendo se a peça é adicionada ou subtraída
+        If (isAdded) Then
+            doc.ActiveRenderStyle = doc.RenderStyles.Item("Green") ' Verde para peça adicionada
+        Else
+            doc.ActiveRenderStyle = doc.RenderStyles.Item("Smooth - Red") ' Vermelho suave para peça subtraída
+        End If
+
+        ' Atualiza a visualização ativa
+        ThisApplication.ActiveView.Update()
+
+        ' Salva e fecha o documento
+        doc.Save()
+        doc.Close(True)
+
+        ' Retorna o nome do novo arquivo
+        Return newFileName
+    End Function
+
+    ' Função que abre uma caixa de diálogo para o usuário selecionar o arquivo da peça
+    Private Function getFileName() As String
+        ' Obtém o projeto ativo no Inventor
+        Dim activeProject = ThisApplication.DesignProjectManager.ActiveDesignProject
+
+        ' Cria a caixa de diálogo para selecionar o arquivo
+        Dim fd As System.Windows.Forms.OpenFileDialog = New System.Windows.Forms.OpenFileDialog()
+        fd.Title = "Selecione o arquivo da peça"
+        fd.InitialDirectory = activeProject.WorkspacePath
+        fd.Filter = "Todos os arquivos (*.*)|*.*|Arquivo de peça (*.ipt)|*.ipt"
+        fd.FilterIndex = 2
+        fd.RestoreDirectory = True
+
+        ' Exibe a caixa de diálogo e retorna o caminho do arquivo selecionado
+        If fd.ShowDialog() = System.Windows.Forms.DialogResult.OK Then
+            Return fd.FileName
+        Else
+            ' Se nenhum arquivo for selecionado, lança uma exceção
+            Throw New Exception("Nenhum arquivo selecionado para a diferença")
+        End If
+    End Function
+End Class

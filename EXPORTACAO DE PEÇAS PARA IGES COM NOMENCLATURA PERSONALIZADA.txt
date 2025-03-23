@@ -1,0 +1,132 @@
+' Obter o documento de desenho ativo
+Dim oDoc As DrawingDocument = ThisApplication.ActiveDocument
+
+' Verificar se o documento é um desenho
+If oDoc.DocumentType <> DocumentTypeEnum.kDrawingDocumentObject Then
+    MessageBox.Show("Este não é um documento de desenho.")
+    Return
+End If
+
+' Exibir uma caixa de entrada para o prefixo do nome do arquivo
+Dim prefixo As String = InputBox("Insira o prefixo para o nome do arquivo IGES:", "Inserir Prefixo")
+
+' Verificar se o prefixo não está vazio
+If String.IsNullOrEmpty(prefixo) Then
+    MessageBox.Show("Prefixo inválido. A exportação não será realizada.")
+    Return
+End If
+
+' Caminho do diretório onde os arquivos IGES serão salvos
+Dim outputFolder As String = "C:\Users\PC\Desktop\Nova pasta" ' Altere para o diretório desejado
+
+' Verificar se o diretório existe
+If Not System.IO.Directory.Exists(outputFolder) Then
+    ' Criar o diretório caso não exista
+    System.IO.Directory.CreateDirectory(outputFolder)
+End If
+
+' Obter o tradutor IGES
+Dim oIGESTranslator As TranslatorAddIn = ThisApplication.ApplicationAddIns.ItemById("{90AF7F44-0C01-11D5-8E83-0010B541CD80}")
+
+If oIGESTranslator Is Nothing Then
+    MessageBox.Show("Não foi possível acessar o tradutor IGES.")
+    Return
+End If
+
+' Criar contexto de tradução e mapa de opções
+Dim oContext As TranslationContext = ThisApplication.TransientObjects.CreateTranslationContext
+Dim oOptions As NameValueMap = ThisApplication.TransientObjects.CreateNameValueMap
+
+' Iterar sobre todas as folhas do desenho
+For Each drawSheet As Sheet In oDoc.Sheets
+    ' Iterar sobre todas as vistas de desenho nas folhas
+    For Each drawingView As DrawingView In drawSheet.DrawingViews
+        ' Verificar se o DrawingView tem um documento de modelo associado
+        If drawingView.ReferencedDocumentDescriptor IsNot Nothing Then
+            Dim oModel As Document = drawingView.ReferencedDocumentDescriptor.ReferencedDocument
+            If oModel IsNot Nothing Then
+                ' Verificar se o modelo é uma peça (IPT) e foi criado com o Frame Generator
+                If oModel.DocumentType = DocumentTypeEnum.kPartDocumentObject AndAlso _
+                   oModel.DocumentInterests.HasInterest("{AC211AE0-A7A5-4589-916D-81C529DA6D17}") Then
+                    ' A peça foi criada com o Frame Generator
+                    MessageBox.Show("A peça " & oModel.DisplayName & " foi criada com o Frame Generator." & vbCrLf & _
+                                     "Nome da folha: " & drawSheet.Name)
+
+                    ' Captura o número da página da folha e formata como 3 dígitos
+                    Dim sheetName As String = drawSheet.Name
+                    Dim pageNumber As String = sheetName.Substring(sheetName.LastIndexOf(":") + 1)
+
+                    ' Verificar se o número da página é menor que 100 para aplicar o formato de 3 dígitos
+                    Dim formattedPageNumber As String
+                    If Integer.TryParse(pageNumber, 0) Then
+                        If Convert.ToInt32(pageNumber) < 100 Then
+                            formattedPageNumber = pageNumber.PadLeft(3, "0"c) ' Formatar com 3 dígitos, por exemplo: 001
+                        Else
+                            formattedPageNumber = pageNumber ' Manter como está se for 100 ou maior
+                        End If
+                    Else
+                        formattedPageNumber = "000" ' Caso o número da página seja inválido
+                    End If
+
+                    ' Acessar e formatar a quantidade personalizada
+                    Dim qtdePersonalizada As String = ""
+                    Try
+                        qtdePersonalizada = oModel.PropertySets.Item("User Defined Properties").Item("QTDE PERSONALIZADA").Value.ToString()
+                    Catch ex As Exception
+                        MessageBox.Show("Erro ao acessar a propriedade personalizada 'QTDE PERSONALIZADA': " & ex.Message)
+                        Return
+                    End Try
+
+                    ' Formatar a quantidade com o sufixo "X" e garantir que tenha 3 dígitos
+                    Dim formattedQtde As String = qtdePersonalizada.PadLeft(3, "0"c) & "X"
+
+                    ' Extrair dimensões do tubo
+                    ' Exemplo: Extrair dimensões do nome do IPT (DIN 59 410 40x40x2.9)
+                    ' Adapte conforme a forma que as dimensões estão no nome do IPT
+                    Dim tubeDimensions As String = "404029" ' Exemplo de como as dimensões poderiam ser extraídas (no caso 40x40x2.9)
+
+                    ' Definir as opções do tradutor IGES
+                    If oIGESTranslator.HasSaveCopyAsOptions(oModel, oContext, oOptions) Then
+                        ' Definir o tipo de geometria (0 = Superfícies, 1 = Sólidos, 2 = Wireframe)
+                        oOptions.Value("GeometryType") = 0 ' Superfícies
+
+                        ' Definir o tipo de superfície (144 - Trimmed)
+                        oOptions.Value("SurfaceType") = 144  ' 144 é para superfícies "Trimmed"
+
+                        ' Definir o tipo de face sólida (NURBS)
+                        oOptions.Value("SolidFaceType") = 0 ' 0 = NURBS
+
+                        ' Definir precisão do ajuste de spline (0,010 mm)
+                        oOptions.Value("SplineFitAccuracy") = 0.010 ' Precisão de 0,010 mm
+
+                        ' Incluir esboços na exportação
+                        oOptions.Value("EBIncludeSketches") = True
+
+                        ' Criar contexto de tradução e arquivo de saída
+                        oContext.Type = kFileBrowseIOMechanism
+                    End If
+
+                    ' Definir o nome do arquivo IGES
+                    Dim igesFileName As String = outputFolder & "\" & prefixo & "-" & formattedPageNumber & "-" & tubeDimensions & "-" & formattedQtde & ".igs"
+                    MessageBox.Show("Nome do arquivo IGES: " & igesFileName)
+
+                    ' Realizar a exportação para IGES
+                    Dim oData As DataMedium = ThisApplication.TransientObjects.CreateDataMedium
+                    oData.FileName = igesFileName
+
+                    Try
+                        ' Tenta salvar o arquivo IGES com as opções definidas
+                        oIGESTranslator.SaveCopyAs(oModel, oContext, oOptions, oData)
+                        MessageBox.Show("Arquivo IGES exportado com sucesso: " & igesFileName)
+                    Catch ex As Exception
+                        MessageBox.Show("Erro ao exportar para IGES: " & ex.Message)
+                    End Try
+                ElseIf oModel.DocumentType = DocumentTypeEnum.kPartDocumentObject Then
+                    ' Caso a peça seja um IPT, mas não tenha sido criada com o Frame Generator
+                    MessageBox.Show("A peça " & oModel.DisplayName & " é um IPT, mas NÃO foi criada com o Frame Generator." & vbCrLf & _
+                                     "Nome da folha: " & drawSheet.Name)
+                End If
+            End If
+        End If
+    Next
+Next

@@ -1,0 +1,31 @@
+'ATUALIZAÇÃO AUTOMÁTICA DE NÚMERO DE BALÃO EM DESENHOS NO INVENTOR
+Sub Main()
+	Dim doc = ThisDoc.Document
+
+	If doc.DocumentType = DocumentTypeEnum.kDrawingDocumentObject Then
+		Dim oSheet As Sheet 
+		oSheet = ActiveSheet.Sheet 
+		
+		Dim oBalloon As Inventor.Balloon 
+		For Each oBalloon In oSheet.Balloons 
+			Dim oReferDoc As Document
+			oReferDoc = oBalloon.BalloonValueSets.Item(1).ReferencedFiles.Item(1).ReferencedDocument
+			
+			Update_Balloon_Number(oBalloon.BalloonValueSets.Item(1).ItemNumber, oReferDoc)
+		Next
+	Else
+		MessageBox.Show("Current docuement is not Drawing", "Document")
+	End If
+End Sub
+
+Sub Update_Balloon_Number(ByVal ItemNumber As String, ByVal oDoc As Document) 
+
+	Try
+		oDoc.PropertySets.Item("Inventor User Defined Properties").Item("Balloon_Number").Value = ItemNumber
+	Catch
+		'catch error when iproperty doesn't exist and create it
+		oDoc.PropertySets.Item("Inventor User Defined Properties").Add("", "Balloon_Number")
+		'then set the property
+		oDoc.PropertySets.Item("Inventor User Defined Properties").Item("Balloon_Number").Value = ItemNumber
+	End Try 	
+End Sub 

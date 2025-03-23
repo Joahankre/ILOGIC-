@@ -80,17 +80,19 @@ For Each drawSheet As Sheet In oDoc.Sheets
                             tubeDimensions = dimensionStr ' Exemplo: 1006010 para 100 x 60 x 1
                         End If
 
-                        ' Extrair a quantidade personalizada (QTDE)
-                        Dim customQuantity As String = ""
+                        ' Acessar e formatar a quantidade personalizada
+                        Dim qtdePersonalizada As String = ""
                         Try
-                            customQuantity = oModel.PropertySets.Item("User Defined Properties").Item("QTDE").Value.ToString()
+                            qtdePersonalizada = oModel.PropertySets.Item("User Defined Properties").Item("QTDE PERSONALIZADA").Value.ToString()
                         Catch ex As Exception
-                            customQuantity = "001"  ' Caso não haja valor para QTDE, usa 001 por padrão
+                            qtdePersonalizada = "001"  ' Caso não haja valor para QTDE, usa 001 por padrão
                         End Try
 
+                        ' Formatar a quantidade com o sufixo "X" e garantir que tenha 3 dígitos
+                        Dim formattedQtde As String = qtdePersonalizada.PadLeft(3, "0"c) & "X"
+
                         ' Formatando o nome do arquivo conforme as instruções
-                        Dim formattedQuantity As String = customQuantity.PadLeft(3, "0"c) & "X"
-                        Dim igesFileName As String = outputFolder & "\" & prefixo & "-" & formattedPageNumber & "-" & tubeDimensions & "-" & formattedQuantity & ".igs"
+                        Dim igesFileName As String = outputFolder & "\" & prefixo & "-" & formattedPageNumber & "-" & tubeDimensions & "-" & formattedQtde & ".igs"
                         
                         ' Criar o contexto de tradução e arquivo de saída
                         oContext.Type = kFileBrowseIOMechanism

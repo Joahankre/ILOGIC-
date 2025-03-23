@@ -1,0 +1,167 @@
+Sub Main
+    ' Código iLogic por Jhoel Forshav - originalmente postado em https://clintbrown.co.uk/ilogic-export-all-flat-patterns-to-one-dxf
+    ' Verifica se o documento ativo é um arquivo de montagem
+    If ThisApplication.ActiveDocument.DocumentType <> kAssemblyDocumentObject Then
+        MessageBox.Show("Esta regra só pode ser executada a partir de um arquivo de Montagem", "Criador de DXF", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        Exit Sub
+    End If
+
+    ' Define o documento ativo como AssemblyDocument
+    Dim oDoc As AssemblyDocument = ThisApplication.ActiveDocument
+    ' Certifica-se de que a montagem está salva
+    If oDoc.FullFileName = "" Then
+        MessageBox.Show("Por favor, salve a Montagem antes de executar esta regra.", "Criador de DXF", MessageBoxButtons.OK, MessageBoxIcon.Information)
+        Exit Sub
+    End If
+
+    ' Obtém o nome do arquivo da montagem sem a extensão
+    Dim oAsmName As String = System.IO.Path.GetFileNameWithoutExtension(oDoc.FullFileName)
+    ' Obtém o caminho do arquivo da montagem
+    Dim oPath As String = System.IO.Path.GetDirectoryName(oDoc.FullFileName)
+
+    ' Obtém a lista de materiais (BOM) apenas das peças.
+    Dim oBOM As BOM = oDoc.ComponentDefinition.BOM
+    ' Certifica-se de que a visualização de "Partes Apenas" está ativada
+    oBOM.PartsOnlyViewEnabled = True
+    ' A visualização de "Partes Apenas" será a última BOMView (difícil de obter pelo nome, pois pode ser diferente dependendo do idioma)
+    Dim oBOMview As BOMView = oBOM.BOMViews.Item(oBOM.BOMViews.Count)
+
+    ' Define uma referência para o objeto TransientGeometry
+    Dim oTG As TransientGeometry = ThisApplication.TransientGeometry
+    ' oX e oY serão usados para criar pontos para posicionamento da visualização
+    Dim oX As Double = 0
+    Dim oY As Double = 0
+    ' Cria as opções da BaseView para posicionar as visualizações do flatpattern
+    Dim oBaseViewOptions As NameValueMap
+    oBaseViewOptions = ThisApplication.TransientObjects.CreateNameValueMap
+    oBaseViewOptions.Add("SheetMetalFoldedModel", False)
+    ' Cria uma string para retornar uma mensagem se alguma peça de SM não estiver salva
+    Dim unsavedSmParts As String = ""
+
+    Dim i As Integer = 1
+    Dim oInfo As String = ""
+
+    ' Percorre a BOM de "Partes Apenas"
+    For Each oRow As BOMRow In oBOMview.BOMRows
+        Try
+            ' Obtém a definição do componente para a peça
+            Dim oDef As ComponentDefinition = oRow.ComponentDefinitions(1)
+            ' Verifica se a peça é de chapa metálica
+            If TypeOf (oDef) Is SheetMetalComponentDefinition Then
+                ' Define uma referência para o documento da peça
+                Dim smPartDoc As PartDocument = oDef.Document
+                ' Verifica se a peça está salva
+                If smPartDoc.FullFileName = "" Then
+                    If unsavedSmParts = "" Then unsavedSmParts = "Os seguintes documentos de SM não foram salvos e, portanto, " & _
+                    "nenhuma visualização de desenho foi criada:" & vbCrLf
+                    unsavedSmParts = unsavedSmParts & vbCrLf & oDef.Document.DisplayName
+                    Continue For
+                End If
+                ' Cria o flatpattern se não existir
+                If Not oDef.HasFlatPattern Then
+                    oDef.Unfold()
+                    oDef.FlatPattern.ExitEdit()
+                End If
+
+                ' Cria um novo desenho apenas para esta peça
+                Dim oDrawing As DrawingDocument = ThisApplication.Documents.Add(DocumentTypeEnum.kDrawingDocumentObject, _
+                , False)
+                ' Define a unidade de medida de comprimento do desenho para ser a mesma da unidade de comprimento da montagem
+                oDrawing.UnitsOfMeasure.LengthUnits = oDoc.UnitsOfMeasure.LengthUnits
+                ' Define uma referência para a folha do desenho
+                Dim oSheet As Sheet = oDrawing.ActiveSheet
+
+                ' Cria a visualização do flatpattern para a peça atual
+                Dim oView As DrawingView = oSheet.DrawingViews.AddBaseView(smPartDoc, oTG.CreatePoint2d(oX, oY), 1 _
+                , ViewOrientationTypeEnum.kDefaultViewOrientation, DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle, _
+                "FlatPattern", , oBaseViewOptions)
+
+                oView.Name = smPartDoc.DisplayName
+                oView.ShowLabel = True
+
+                ' Define a posição com nossos valores de oX e oY
+                oView.Position = oTG.CreatePoint2d(oView.Position.X + oView.Width / 2, oView.Position.Y)
+                ' Move oX para posicionar a próxima visualização à direita desta
+                oX = oView.Left + oView.Width + 1
+                ' Remove as linhas de dobra da visualização
+                RemoveBendLines(oView, oDef.FlatPattern) ' Você pode comentar esta linha para manter as linhas de dobra
+
+                oInfo = oInfo & If(i = 1, "", vbCrLf) & i & ". " & smPartDoc.PropertySets.Item("Design Tracking Properties"). _
+                Item("Part Number").Value
+
+                i += 1
+
+                ' Salva o DXF para cada peça de chapa metálica
+                Dim oDXFName As String = oPath & "\" & smPartDoc.DisplayName & "_FlatPattern.dxf"
+                Dim oINI As String = "C:\Caminho\para\arquivo.ini" ' Substitua com o caminho correto para o arquivo .ini
+
+                ' Salva o DXF para esta peça
+                SaveDXF(oDrawing, oDXFName, oINI)
+
+                ' Fecha a peça
+                smPartDoc.Close(True)
+            End If
+        Catch Ex As Exception
+            MsgBox(Ex.Message)
+        End Try
+    Next
+
+    ' Retorna informações sobre as partes não salvas
+    If unsavedSmParts <> "" Then _
+    MessageBox.Show(unsavedSmParts, "Algumas peças não foram salvas", _
+    MessageBoxButtons.OK, MessageBoxIcon.Information)
+
+    ' Atualiza a montagem (pode estar suja se algum flatpattern foi criado)
+    oDoc.Update
+End Sub
+
+' Função para salvar o DXF
+Sub SaveDXF(oDrawing As DrawingDocument, oFileName As String, oIniFile As String)
+    ' Define uma referência para o tradutor DXF
+    Dim DXFAddIn As TranslatorAddIn
+    DXFAddIn = ThisApplication.ApplicationAddIns.ItemById("{C24E3AC4-122E-11D5-8E91-0010B541CD80}")
+    ' Cria o contexto de tradução
+    Dim oContext As TranslationContext = ThisApplication.TransientObjects.CreateTranslationContext
+    oContext.Type = IOMechanismEnum.kFileBrowseIOMechanism
+    ' Cria as opções para a tradução
+    Dim oOptions As NameValueMap = ThisApplication.TransientObjects.CreateNameValueMap
+    ' Cria um objeto DataMedium
+    Dim oDataMedium As DataMedium = ThisApplication.TransientObjects.CreateDataMedium
+    ' Define as opções (qual arquivo .ini usar)
+    If DXFAddIn.HasSaveCopyAsOptions(oDrawing, oContext, oOptions) Then
+        oOptions.Value("Export_Acad_IniFile") = oIniFile
+    End If
+    ' Define o nome do arquivo no objeto DataMedium
+    oDataMedium.FileName = oFileName
+    Try
+        ' Tenta salvar o DXF
+        DXFAddIn.SaveCopyAs(oDrawing, oContext, oOptions, oDataMedium)
+        MessageBox.Show("Dxf salvo em: " & oFileName, "DXF SALVO", MessageBoxButtons.OK, MessageBoxIcon.Information)
+    Catch
+        MessageBox.Show("Não foi possível salvar o DXF!", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error)
+    End Try
+End Sub
+
+' Função para remover as linhas de dobra
+Sub RemoveBendLines(oView As DrawingView, oFlatPattern As FlatPattern)
+    ' Obtém todas as bordas de dobra do FlatPattern
+    Dim oBendEdgesUp As Edges = oFlatPattern.GetEdgesOfType(FlatPatternEdgeTypeEnum.kBendUpFlatPatternEdge)
+    Dim oBendEdgesDown As Edges = oFlatPattern.GetEdgesOfType(FlatPatternEdgeTypeEnum.kBendDownFlatPatternEdge)
+
+    ' Remove as linhas de dobra
+    For Each oEdge As Edge In oBendEdgesUp
+        For Each oCurve As DrawingCurve In oView.DrawingCurves(oEdge)
+            For Each oSegment As DrawingCurveSegment In oCurve.Segments
+                oSegment.Visible = False
+            Next
+        Next
+    Next
+
+    For Each oEdge As Edge In oBendEdgesDown
+        For Each oCurve As DrawingCurve In oView.DrawingCurves(oEdge)
+            For Each oSegment As DrawingCurveSegment In oCurve.Segments
+                oSegment.Visible = False
+            Next
+        Next
+    Next
+End Sub

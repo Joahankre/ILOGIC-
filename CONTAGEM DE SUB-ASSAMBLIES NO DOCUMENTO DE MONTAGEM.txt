@@ -1,0 +1,51 @@
+Public Class CountSubAssemblies
+    ' Lista que armazena o nome dos sub-assemblies encontrados
+    Public SubAssembliesList As New List(Of String)
+
+    ' Função principal para contagem e exibição dos sub-assemblies
+    Sub main
+        ' Obtém o documento ativo do Inventor
+        Dim doc As Inventor.AssemblyDocument = ThisApplication.ActiveDocument
+        ' Obtém a definição de montagem do documento ativo
+        Dim acd As Inventor.AssemblyComponentDefinition = doc.ComponentDefinition
+        
+        ' Loop através das ocorrências de componentes na montagem
+        For Each occ As Inventor.ComponentOccurrence In acd.Occurrences
+            ' Obtém o documento referenciado pela ocorrência
+            Dim refDoc As Inventor.Document = occ.ReferencedDocumentDescriptor.ReferencedDocument
+            ' Verifica se o documento referenciado é uma montagem
+            If refDoc.DocumentType = DocumentTypeEnum.kAssemblyDocumentObject Then
+                ' Adiciona o nome da ocorrência (sub-assembly) à lista
+                SubAssembliesList.add(occ.Name)
+                ' Chama a função para verificar se há sub-assemblies dentro dessa ocorrência
+                has_childs(occ)
+            End If
+        Next
+
+        ' Variável para armazenar a lista formatada dos sub-assemblies
+        Dim list As String
+        ' Concatena os nomes dos sub-assemblies para exibição
+        For Each s As String In SubAssembliesList
+            list = list & s & vbCrLf
+        Next
+
+        ' Exibe a lista de sub-assemblies em uma caixa de mensagem
+        MsgBox(list)
+    End Sub
+
+    ' Função recursiva para verificar sub-assemblies dentro de sub-assemblies
+    Private Sub has_childs(inputOcc As Inventor.ComponentOccurrence)
+        ' Loop através das sub-ocorrências de cada ocorrência
+        For Each subOcc As Inventor.ComponentOccurrence In inputOcc.SubOccurrences
+            ' Obtém o documento referenciado pela sub-ocorrência
+            Dim refDoc As Inventor.Document = subOcc.ReferencedDocumentDescriptor.ReferencedDocument
+            ' Verifica se o documento referenciado é uma montagem
+            If refDoc.DocumentType = DocumentTypeEnum.kAssemblyDocumentObject Then
+                ' Adiciona o nome da sub-ocorrência à lista
+                SubAssembliesList.add(subOcc.Name)
+                ' Chama a função recursivamente para verificar mais sub-assemblies
+                has_childs(subOcc)
+            End If
+        Next
+    End Sub
+End Class

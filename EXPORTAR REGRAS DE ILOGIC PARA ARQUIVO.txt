@@ -1,0 +1,49 @@
+Sub Main()
+    ' Verifica se o documento ativo é um documento de montagem
+    If ThisApplication.ActiveDocumentType <> kAssemblyDocumentObject Then
+        MessageBox.Show("This rule is designed to only work in assembly documents.", "Wrong Document Type")
+        Exit Sub
+    End If
+
+    Dim oDoc As AssemblyDocument = ThisApplication.ActiveDocument
+    Dim oPath As String = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(oDoc.FullFileName), "iLogicRules")
+    Dim RuleText As String
+    Dim iRules As Object
+
+    ' Recupera as regras do documento de montagem ativo
+    Try
+        iRules = iLogicVb.Automation.Rules(oDoc)  
+        If IsNothing(iRules) Then
+            MessageBox.Show("Nenhuma regra iLogic encontrada no documento de montagem.", "Regras Não Encontradas")
+            Exit Sub
+        End If
+
+        ' Verifica se existem regras e escreve em arquivos
+        For Each iRule As iLogicRule In iRules
+            RuleText = iLogicVb.Automation.GetRule(oDoc, iRule.Name).Text
+            Call WriteToFile(oPath, iRule.Name, RuleText)
+        Next
+    Catch ex As Exception
+        MessageBox.Show("Erro ao acessar as regras iLogic: " & ex.Message, "Erro")
+    End Try
+End Sub
+
+Sub WriteToFile(FileDirectory As String, RuleName As String, Contents As String)
+    ' Verifica se o diretório existe
+    If Not System.IO.Directory.Exists(FileDirectory) Then
+        System.IO.Directory.CreateDirectory(FileDirectory)
+    End If
+
+    ' Prepara o nome do arquivo usando somente o nome da regra
+    Dim oWriteName As String = System.IO.Path.Combine(FileDirectory, RuleName & ".txt")
+    MessageBox.Show("Escrevendo arquivo: " & oWriteName) ' Mensagem de depuração
+
+    ' Cria e escreve no arquivo
+    Try
+        Using oWrite As System.IO.StreamWriter = System.IO.File.CreateText(oWriteName)
+            oWrite.Write(Contents)
+        End Using
+    Catch ex As Exception
+        MessageBox.Show("Ocorreu um erro ao escrever o arquivo: " & ex.Message)
+    End Try
+End Sub

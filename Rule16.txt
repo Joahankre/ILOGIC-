@@ -1,0 +1,15 @@
+Sub Main
+	Dim oDoc As Document = ThisDoc.Document
+	If oDoc.AllReferencedDocuments.Count = 0 Then Exit Sub
+	Dim oAllRefAssemblys As New List(Of String)
+	For Each oRefDoc As Document In oDoc.AllReferencedDocuments
+		If oRefDoc.DocumentType = DocumentTypeEnum.kAssemblyDocumentObject Then
+			oAllRefAssemblys.Add(oRefDoc.FullDocumentName)
+		End If
+	Next
+	If oAllRefAssemblys.Count = 0 Then
+		MsgBox("This assembly is not referencing any other assemblies.", vbInformation, "iLogic")
+	Else
+		a = InputListBox("", oAllRefAssemblys, "", "All Referenced Assemblies", "List of All Referenced Assemblies")
+	End If
+End Sub

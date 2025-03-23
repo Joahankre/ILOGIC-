@@ -1,0 +1,36 @@
+Dim oView As View = ThisApplication.ActiveView
+ Dim oCamera As Inventor.Camera
+    oCamera = oView.Camera
+
+Dim iCurrentBakground = ThisApplication.ColorSchemes.BackgroundType.GetHashCode()
+
+
+Dim oCurrentColorSceme = ThisApplication.ActiveColorScheme
+''MsgBox(oCurrentColorSceme.)
+
+Dim sCurrentScheme = ThisApplication.ActiveColorScheme '''Get the current scheme
+'MsgBox(sCurrentScheme.Name) '''Show the current scheme name
+If sCurrentScheme.Name <> "Presentation" Then
+	ThisApplication.ColorSchemes.Item("Presentation").Activate 
+Else 
+	'ThisApplication.ColorSchemes.Item("PreferedScheme").Activate '''' Your prefered scheme here 
+End If
+
+If ThisApplication.ColorSchemes.BackgroundType <> 52737 And sCurrentScheme.Name = "Presentation" Then
+'	MsgBox(iCurrentBakground)
+	ThisApplication.ColorSchemes.BackgroundType = 52737
+	oCamera.Perspective = True
+	oCamera.ApplyWithoutTransition
+	oView.DisplayMode = DisplayModeEnum.kShadedRendering
+	oView.Update
+Else
+'	MsgBox("wait")
+	ThisApplication.ColorSchemes.BackgroundType = 52739
+	oCamera.Perspective = False
+    oCamera.ApplyWithoutTransition
+	oView.DisplayMode = DisplayModeEnum.kShadedWithEdgesRendering
+	oView.Update
+End If
+
+
+ThisApplication.ActiveView.Update()

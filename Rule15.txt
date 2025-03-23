@@ -1,0 +1,20 @@
+Using Inventor;
+
+Public Void GetComponentGUID()
+{
+    // Obter o aplicativo Inventor em execução
+    Inventor.Application inventorApp = (Inventor.Application)System.Runtime.InteropServices.Marshal.GetActiveObject("Inventor.Application");
+
+    // Obter o documento ativo (por exemplo, uma montagem)
+    AssemblyDocument assemblyDoc = (AssemblyDocument)inventorApp.ActiveDocument;
+
+    // Iterar pelos componentes da montagem
+    foreach (ComponentOccurrence occurrence In assemblyDoc.ComponentDefinition.Occurrences)
+    {
+        // Obter o Guid Do componente
+        String componentGUID = occurrence.InternalName;
+
+        // Exibir o Guid Do componente
+        Console.WriteLine("GUID do Componente: " + componentGUID);
+    }
+}

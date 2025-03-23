@@ -1,0 +1,111 @@
+'***Início do código iLogic ***
+'-----------------------------------------
+'Esta regra iLogic irá percorrer todos os itens em uma montagem e adicionar um campo QTY a ela.
+'O campo QTY é baseado em um número de projeto programável. (project_QTY)
+'Itens do Content Center são ignorados. (Somente leitura)
+'Há uma opção para definir o número do projeto.
+
+Sub Main ()
+    'Verifica se este documento é uma montagem.
+    oDoc = ThisApplication.ActiveDocument
+        If oDoc.DocumentType <> kAssemblyDocumentObject Then
+        MessageBox.Show("Esta regra só pode ser executada em um arquivo de montagem - saindo da regra...", "iLogic")
+        Return
+        End If
+    If iProperties.Value("Project", "Project") = "" Then
+        oProj = InputBox("Alterar Nome do Projeto", "Nome do Projeto", iProperties.Value("Project", "Project"))
+        iProperties.Value("Project", "Project") = oProj
+    End If
+
+    'Nome da propriedade personalizada será sempre "QTDE PERSONALIZADA"
+    oBOMQTY = "QTDE PERSONALIZADA"
+
+    oQ = MessageBox.Show(oBOMQTY, "Número do Projeto", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question)
+    If oQ = vbYes Then
+        oDone() 'próxima rotina Sub
+    ElseIf oQ = vbNo Then
+        Call oProject 'Opção para alterar o número do projeto para o GA
+    ElseIf oQ = vbCancel Then
+        MessageBox.Show("Cancelado", "iLogic", MessageBoxButtons.OK, MessageBoxIcon.Asterisk, MessageBoxDefaultButton.Button1)
+        Return
+    End If
+End Sub
+
+Sub oDone()
+    oCompDef = ThisDoc.Document.ComponentDefinition ' Não é necessário, mas deixei para referência ao procurar trechos de código.
+    openDoc = ThisDoc.Document
+    oBOMQTY = "QTDE PERSONALIZADA" ' Nome da propriedade personalizada
+
+    'Abre o documento que o Inventor tem em foco no momento
+    For Each docFile In openDoc.AllReferencedDocuments
+
+        'FNamePos está pegando o número de espaços necessários para chegar até a
+        'última barra invertida no nome completo do arquivo do nosso documento.        
+        FNamePos = InStrRev(docFile.FullFileName, "\", -1)       
+    
+        'Podemos então pegar esse número (posição) e usá-lo para cortar todo o
+        'caminho do arquivo que não precisamos. Neste caso, estamos eliminando a parte inicial do caminho,
+        'deixando apenas o nome do arquivo.
+        docFName = Mid(docFile.FullFileName, FNamePos + 1, Len(docFile.FullFileName) - FNamePos)
+       
+        'Vamos garantir que podemos alterar esta parte. Se pudermos, vamos continuar.
+        If docFile.IsModifiable = True Then
+           
+            'Como você só pode pegar as ocorrências de um documento de montagem
+            'precisamos preencher aquele contêiner vazio de AssemblyDocument com um objeto
+            'que sabemos que é definitivamente um documento de montagem. Como foi uma das
+            'primeiras verificações que fizemos lá no início, podemos afirmar com segurança
+            'que assemblyDoc (que é um AssemblyDocument) é igual a
+            ' openDoc (que é apenas um Documento comum)            
+            assemblyDoc = openDoc
+           
+            'Enquanto estamos nisso, vamos definir o contêiner vazio ComponentDefinition
+            '(chamamos de assemblyDef) com algum conteúdo.
+            assemblyDef = assemblyDoc.ComponentDefinition
+           
+            'Agora precisamos coletar cada instância do documento contra
+            'nossa montagem aberta e colocá-las todas dentro de partQty.
+            partQty = assemblyDef.Occurrences.AllReferencedOccurrences(docFile)
+           
+            'Agora que temos nossa coleção de instâncias, precisamos preencher
+            'nosso iProperty de destino com a quantidade total.
+           
+            'Em vez de apenas colocar esse valor lá, vamos garantir que
+            'o valor dentro do iProperty de destino já não seja igual ao nosso total.
+            'Se for igual, não precisamos mudar nada (o que economiza tempo!),
+            'mas se não for igual, precisaremos alterá-lo.
+           
+            'A instrução Try está aqui por causa da próxima instrução if --- 
+           
+            'Se apenas compararmos os dois valores, há uma pequena chance de que nosso iProperty
+            'de destino já esteja configurado para algo que NÃO seja um número, o que causaria
+            'um erro (pois não podemos comparar números com coisas que não são números).
+            'Então, tentamos completar essa instrução if, e se houver um erro (o CATCH)
+            'forçamos o valor de destino a ser igual ao nosso total de quantidade de peças.
+            Try
+                If partQty.Count <> iProperties.Value(docFName, "Custom", oBOMQTY) Then               
+                    iProperties.Value(docFName, "Custom", oBOMQTY) = partQty.Count
+                End If                     
+            Catch
+                iProperties.Value(docFName, "Custom", oBOMQTY) = partQty.Count
+            End Try
+        End If
+    Next
+
+    'Adicionei a seguinte linha para adicionar o valor ao GA
+    'Pois a falta dele estava causando problemas no ambiente de detalhamento.
+    Try
+        oASSYParam = iProperties.Value("Custom", oBOMQTY)
+    Catch
+        iProperties.Value("Custom", oBOMQTY) = "1"
+    End Try
+
+    iLogicVb.UpdateWhenDone = True
+    MessageBox.Show("Concluído" & vbNewLine & "Campião" & vbNewLine & ":-)", "Concluído", MessageBoxButtons.OK, MessageBoxIcon.Asterisk, MessageBoxDefaultButton.Button1)
+End Sub
+
+Sub oProject()
+    oProj = InputBox("Alterar Nome do Projeto", "Nome do Projeto", iProperties.Value("Project", "Project"))
+    iProperties.Value("Project", "Project") = oProj
+    Main() 'Retornar ao início
+End Sub

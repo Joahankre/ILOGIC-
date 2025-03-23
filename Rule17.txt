@@ -1,0 +1,43 @@
+Sub Main()  
+	 
+    ' Get the active assembly. 
+    Dim oAsmDoc As AssemblyDocument 
+    oAsmDoc = ThisApplication.ActiveDocument  
+	 
+    ' Get the assembly component definition. 
+    Dim oAsmDef As AssemblyComponentDefinition 
+    oAsmDef = oAsmDoc.ComponentDefinition 
+
+    ' Get all of the leaf occurrences of the assembly. 
+    Dim oLeafOccs As ComponentOccurrencesEnumerator 
+    oLeafOccs = oAsmDef.Occurrences.AllLeafOccurrences 
+
+    ' Iterate through the occurrences and print the name. 
+	Dim cnt As Integer 
+	cnt = 0
+	Dim total As Double  
+	 
+	Dim oOcc As ComponentOccurrence
+	For Each oOcc In oLeafOccs
+		Try
+			Dim sawAngle As String
+			sawAngle = iProperties.Value(oOcc.Name, "Custom", "CUTDETAIL1") 
+			Dim angle(2) As String 
+			angle = sawAngle.Split(" ")
+			
+			If angle(0) = "Miter" Then
+				
+				Dim needAngle As Double
+				needAngle = 90 - Convert.ToDouble(angle(1))
+			
+				iProperties.Value(oOcc.Name, "Custom", "CUTDETAIL1") = "Miter " + needAngle.ToString + " deg"
+			
+			End If  
+			
+		Catch 
+		
+		End Try 
+		 
+	Next   
+
+End Sub

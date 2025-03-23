@@ -1,0 +1,90 @@
+Sub Main()
+    ' TÍTULO: CRIAÇÃO DE PROPRIEDADE PERSONALIZADA "Thickness" PARA CHAPAS METÁLICAS
+
+    ' Define o documento ativo como o documento atual
+    Dim doc = ThisDoc.Document
+
+    ' Verifica se o documento é uma montagem (AssemblyDocument)
+    If doc.DocumentType = kAssemblyDocumentObject Then
+        ' Código a ser executado para montagem
+    Else
+        ' Retorna se o documento não for uma montagem
+        Return
+    End If
+
+    ' Define o GUID da chapa metálica, usado para identificar peças de chapa metálica
+    Dim SheetMetalCheckGUID As String = "{9C464203-9BAE-11D3-8BAD-0060B0CE6BB4}"
+
+    ' Itera pela montagem para encontrar peças de chapa metálica
+    Dim oAssyDoc As AssemblyDocument = ThisApplication.ActiveDocument
+    Dim oCompOccEnum As ComponentOccurrencesEnumerator = oAssyDoc.ComponentDefinition.Occurrences.AllReferencedOccurrences(oAssyDoc.ComponentDefinition)
+
+    ' Loop para percorrer todas as ocorrências de componentes na montagem
+    For Each oCompOcc In oCompOccEnum
+        ' Verifica se o componente é uma peça de chapa metálica usando o GUID
+        If oCompOcc.Definition.Document.SubType = SheetMetalCheckGUID Then
+            Try
+                ' Tenta acessar o parâmetro "Espessura" da chapa metálica
+                Dim thickness As String = GetThickness(oCompOcc)
+                
+                If Not String.IsNullOrEmpty(thickness) Then
+                    ' Acessa o documento do componente (peça)
+                    Dim partDoc As PartDocument = oCompOcc.Definition.Document
+
+                    ' Verifica se a propriedade personalizada "Thickness" já existe, se não, cria
+                    If Not PropertyExists(partDoc, "Thickness") Then
+                        ' Cria a propriedade personalizada "Thickness" com o valor da espessura
+                        iProperties.Value(partDoc, "Custom", "Thickness") = thickness
+                    Else
+                        ' Se a propriedade já existir, atualiza o valor da espessura
+                        iProperties.Value(partDoc, "Custom", "Thickness") = thickness
+                    End If
+                Else
+                    MessageBox.Show("Parâmetro 'Espessura' não encontrado para o componente: " & oCompOcc.Name, "Erro")
+                End If
+
+            Catch ex As Exception
+                ' Exibe uma mensagem de erro se algo der errado
+                MessageBox.Show("Erro: " & ex.Message, "Chapa metálica")
+                Return
+            End Try
+        End If
+    Next
+
+    ' Exibe uma mensagem de status
+    ThisApplication.StatusBarText = "Exportação da propriedade 'Thickness' bem-sucedida"
+End Sub
+
+' Função para verificar a existência do parâmetro "Espessura" na peça
+Private Function GetThickness(ByVal oCompOcc As ComponentOccurrence) As String
+    Try
+        ' Tenta acessar o parâmetro "Espessura" do componente (chapa metálica)
+        Dim oPartDoc As PartDocument = oCompOcc.Definition.Document
+        Dim oParameters As Parameters = oPartDoc.ComponentDefinition.Parameters
+
+        ' Verifica se o parâmetro "Espessura" existe e retorna o valor
+        For Each param As Parameter In oParameters
+            If param.Name = "Espessura" Then
+                Return param.Value.ToString() ' Retorna o valor do parâmetro como string
+            End If
+        Next
+
+        ' Se o parâmetro "Espessura" não for encontrado, retorna uma string vazia
+        Return String.Empty
+    Catch ex As Exception
+        ' Se ocorrer algum erro ao acessar o parâmetro, retorna uma string vazia
+        Return String.Empty
+    End Try
+End Function
+
+' Função para verificar se a propriedade personalizada "Thickness" existe
+Private Function PropertyExists(ByVal doc As PartDocument, ByVal propName As String) As Boolean
+    Try
+        ' Tenta acessar a propriedade personalizada
+        Dim prop As [Property] = doc.PropertySets.Item("Custom").Item(propName)
+        Return True
+    Catch ex As Exception
+        ' Se a propriedade não existir, retorna False
+        Return False
+    End Try
+End Function

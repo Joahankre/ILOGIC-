@@ -1,0 +1,62 @@
+Sub Main()
+    ' Armazena o esquema de cores atual e o tipo de fundo
+    Dim oColorScheme As String
+    oColorScheme = ThisApplication.ActiveColorScheme.Name
+
+    Dim oBackGroundType As Integer
+    oBackGroundType = ThisApplication.ColorSchemes.BackgroundType
+
+    ' Muda para o esquema de cores "Presentation" (fundo branco)
+    ThisApplication.ColorSchemes.Item("Presentation").Activate()
+
+    ' Define o tipo de fundo como uma cor única
+    ThisApplication.ColorSchemes.BackgroundType = BackgroundTypeEnum.kOneColorBackgroundType
+
+    ' Trabalha com documentos referenciados
+    Dim oAsmDoc As AssemblyDocument
+    oAsmDoc = ThisApplication.ActiveDocument
+    Dim oDoc As Document
+
+    ' Itera sobre todos os documentos referenciados
+    For Each oDoc In oAsmDoc.AllReferencedDocuments
+        ' Abre o documento referenciado
+        ThisApplication.Documents.Open(oDoc.FullFileName, True)
+
+        ' Manipula a visibilidade de sketches, planos de trabalho, e eixos de trabalho
+        Dim oSketch As Sketch
+        For Each oSketch In oDoc.ComponentDefinition.Sketches
+            oSketch.Visible = False
+        Next
+
+        ' Desativa a visibilidade dos planos de trabalho
+        Dim oWorkPlane As WorkPlane
+        For Each oWorkPlane In oDoc.ComponentDefinition.WorkPlanes
+            oWorkPlane.Visible = False
+        Next
+
+        ' Desativa a visibilidade dos eixos de trabalho
+        Dim oWorkAxis As WorkAxis
+        For Each oWorkAxis In oDoc.ComponentDefinition.WorkAxes
+            oWorkAxis.Visible = False
+        Next
+
+        ' Desativa a visibilidade dos pontos de trabalho
+        Dim oWorkPoint As WorkPoint
+        For Each oWorkPoint In oDoc.ComponentDefinition.WorkPoints
+            oWorkPoint.Visible = False
+        Next
+
+        ' Define a opção de salvar o thumbnail como uma vista ISO ativa
+        oDoc.SetThumbnailSaveOption(ThumbnailSaveOptionEnum.kActiveComponentIsoViewOnSave)
+
+        ' Salva e fecha o documento
+        oDoc.Save()
+        oDoc.Close()
+    Next
+
+    ' Restaura o esquema de cores original
+    ThisApplication.ColorSchemes.Item(oColorScheme).Activate()
+
+    ' Restaura o tipo de fundo original
+    ThisApplication.ColorSchemes.BackgroundType = oBackGroundType
+End Sub

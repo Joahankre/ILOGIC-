@@ -1,0 +1,33 @@
+Dim oDoc As DrawingDocument : oDoc = ThisDoc.Document
+
+Dim oSheets As Sheets
+Dim oSheet As Sheet
+Dim oViews As DrawingViews
+Dim oView As DrawingView
+Dim SheetNumber As String
+i =1
+
+oSheets = oDoc.Sheets
+
+
+For Each oSheet In oSheets
+oViews = oSheet.DrawingViews
+	For Each oView In oViews
+	'capture the current view label
+	ViewLabel = oView.Name
+	oModelName = _
+	oView.ReferencedDocumentDescriptor.ReferencedDocument.DisplayName
+	Try
+		SheetNumber = Mid(oSheet.Name, InStr(1, oSheet.Name, ":") + 1)
+		SheetNumber = IIf (SheetNumber < 10, "00" + CStr(SheetNumber), "0" + CStr(SheetNumber))
+		i = 1 + 1
+		
+		iProperties.Value(oModelName, "Custom", "Sheet Number") = SheetNumber
+		'Send view label items to models custom iProperty           
+
+	 Catch
+	'do nothing if error
+	    End Try
+	    'End If
+	Next
+Next

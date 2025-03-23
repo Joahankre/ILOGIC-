@@ -1,0 +1,53 @@
+Public Class ThisRule
+    Sub Main()
+        Dim doc As AssemblyDocument = ThisDoc.Document
+        Dim trans As Transaction = ThisApplication.TransactionManager.
+                    StartTransaction(doc, "Unique Colors")
+        SetDesignViewRepresentation(doc)
+        Dim knowOcc As New Dictionary(Of String, Asset)
+        For Each occ As ComponentOccurrence In doc.ComponentDefinition.Occurrences
+            Dim id As String = GetIdentifier(occ)
+            If (knowOcc.ContainsKey(id)) Then
+                occ.Appearance = knowOcc.Item(id)
+            Else
+                Dim asset As Asset = GetColorAsset(doc)
+                occ.Appearance = asset
+                knowOcc.Add(id, asset)
+            End If
+        Next
+        trans.End()
+    End Sub
+
+    Private Function GetColorAsset(doc As AssemblyDocument)
+        Dim asset As Asset = doc.Assets.Add(
+                    AssetTypeEnum.kAssetTypeAppearance,
+                    "Generic",
+                    "appearances")
+        Dim uColor As ColorAssetValue = asset.Item("generic_diffuse")
+        Dim RNG = Math.Round(Rnd() * 255)
+        Dim RNG1 = Math.Round(Rnd() * 255)
+        Dim RNG2 = Math.Round(Rnd() * 255)
+        uColor.Value = ThisApplication.TransientObjects.
+                    CreateColor(RNG, RNG1, RNG2)
+        Return asset
+    End Function
+
+    Private Function GetIdentifier(occ As ComponentOccurrence)
+        Dim occDoc As Document = occ.Definition.Document
+        Dim occPropSet As PropertySet = occDoc.PropertySets.Item("Design Tracking Properties")
+        Dim PartNrProp As [Property] = occPropSet.Item("Part Number")
+        Return PartNrProp.Value
+    End Function
+
+    Private Sub SetDesignViewRepresentation(doc As AssemblyDocument)
+        Dim ucRep As DesignViewRepresentation
+        Dim manager As RepresentationsManager = doc.ComponentDefinition.RepresentationsManager
+        Try
+            ucRep = manager.DesignViewRepresentations("Unique Colors")
+        Catch ex As Exception
+            ucRep = manager.DesignViewRepresentations.Add("Unique Colors")
+        End Try
+        ucRep.Activate()
+    End Sub
+
+End Class

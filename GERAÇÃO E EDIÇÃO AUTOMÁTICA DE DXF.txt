@@ -1,0 +1,180 @@
+Sub Main()
+    ' Caminho do diretório onde os arquivos DXF serão exportados 
+    Dim SetTheFilePathHere As String = "C:\Users\PC\Desktop\PROJETOS INVENTOR\SHEET METAL\03-DXFs"
+
+    ' Verificar se o diretório de destino existe, se não, criar
+    If Not System.IO.Directory.Exists(SetTheFilePathHere) Then
+        Try
+            ' Tenta criar o diretório
+            System.IO.Directory.CreateDirectory(SetTheFilePathHere)
+            MessageBox.Show("O diretório foi criado com sucesso!", "Diretório Criado")
+        Catch ex As Exception
+            MessageBox.Show("Erro ao tentar criar o diretório: " & ex.Message, "Erro de Criação de Diretório")
+            Exit Sub
+        End Try
+    End If
+
+    ' Solicitar ao usuário que insira o prefixo para o nome do arquivo e o texto
+    Dim prefix As String = InputBox("Digite o prefixo para o arquivo DXF e o texto:", "Prefixo do DXF", "")
+
+    ' Se o prefixo estiver vazio, exibir mensagem e encerrar
+    If String.IsNullOrEmpty(prefix) Then
+        MessageBox.Show("Prefixo não informado. A exportação será cancelada.", "Erro de Prefixo")
+        Exit Sub
+    End If
+
+    ' Acessar o documento ativo (deve ser uma montagem)
+    Dim oDoc As AssemblyDocument = Nothing
+    If TypeOf ThisApplication.ActiveDocument Is AssemblyDocument Then
+        oDoc = CType(ThisApplication.ActiveDocument, AssemblyDocument)
+    Else
+        MessageBox.Show("O documento ativo não é uma montagem.", "Erro")
+        Exit Sub
+    End If
+
+    ' Verificar se o documento ativo é uma montagem
+    If oDoc.DocumentType <> kAssemblyDocumentObject Then
+        MessageBox.Show("Por favor, execute esta regra a partir de um arquivo de montagem.", "iLogic")
+        Exit Sub
+    End If
+
+    ' Obter a lista de componentes da montagem (BOM)
+    Dim oBOM As BOM = oDoc.ComponentDefinition.BOM
+    oBOM.StructuredViewEnabled = True
+    Dim oBOMView As BOMView = oBOM.BOMViews.Item(oBOM.BOMViews.Count)
+
+    ' Iterar sobre as linhas da lista de materiais (BOM)
+    For Each oRow As BOMRow In oBOMView.BOMRows
+        Dim iDoc As Document = Nothing
+
+        Try
+            ' Acessar o componente de cada linha da BOM
+            Dim oCD As ComponentDefinition = oRow.ComponentDefinitions.Item(1)
+            iDoc = oCD.Document
+
+            ' Somente peças de chapa metálica
+            If iDoc.SubType <> "{9C464203-9BAE-11D3-8BAD-0060B0CE6BB4}" Then Continue For
+
+            ' Verificar se o modelo está salvo e acessar o documento
+            If TypeOf iDoc Is PartDocument Then
+                Dim partDoc As PartDocument = CType(iDoc, PartDocument)
+                Dim iName As String = partDoc.FullFileName
+
+                If String.IsNullOrEmpty(iName) Then Continue For
+
+                ' Acessar o documento
+                iDoc = ThisApplication.Documents.Open(iName)
+                oCD = iDoc.ComponentDefinition
+
+                ' Garantir que o plano de chapa seja desdobrado corretamente
+                If Not oCD.HasFlatPattern Then
+                    Try
+                        oCD.Unfold() ' Tenta gerar o plano de chapa
+                    Catch ex As Exception
+                        MessageBox.Show("Erro ao desdobrar a chapa: " & ex.Message, "Erro de Desdobramento")
+                        Exit Sub
+                    End Try
+                Else
+                    Try
+                        oCD.FlatPattern.Edit() ' Edita o plano existente
+                    Catch ex As Exception
+                        MessageBox.Show("Erro ao editar o plano de chapa: " & ex.Message, "Erro de Desdobramento")
+                        Exit Sub
+                    End Try
+                End If
+
+                ' Solicitar ao usuário a seleção da face para exportação
+                Dim selectedFace As Face = CType(ThisApplication.CommandManager.Pick(SelectionFilterEnum.kPartFaceFilter, "Selecione uma Face para Exportar como DXF"), Face)
+
+                If selectedFace Is Nothing Then
+                    MessageBox.Show("Nenhuma face selecionada. A exportação foi cancelada.", "Cancelado")
+                    Exit Sub
+                End If
+
+                ' Obter as propriedades customizadas (Sheet Number, TotalQty, Thickness)
+                Dim oProperties As PropertySets = iDoc.PropertySets
+                Dim sheetNumber As String = ""
+                Dim totalQty As String = ""
+                Dim thickness As String = ""
+
+                Try
+                    sheetNumber = oProperties.Item("User Defined Properties").Item("Sheet Number").Value.ToString()
+                    totalQty = oProperties.Item("User Defined Properties").Item("TotalQty").Value.ToString()
+                    thickness = oProperties.Item("User Defined Properties").Item("Thickness").Value.ToString()
+                Catch ex As Exception
+                    MessageBox.Show("Erro ao acessar propriedades customizadas: " & ex.Message, "Erro de Propriedade")
+                    Exit Sub
+                End Try
+
+                ' Formatar os valores
+                Dim formattedSheetNumber As String = sheetNumber.PadLeft(3, "0"c) ' Garantir 3 dígitos no Sheet Number
+                Dim thicknessWithoutMM As String = thickness.Replace(" mm", "") ' Remover "mm" de Thickness
+                Dim formattedThickness As String = String.Format("#{0:F2}", Convert.ToDouble(thicknessWithoutMM)) ' Formatar a espessura com 2 casas decimais
+
+                ' Trocar a vírgula por ponto em Thickness
+                formattedThickness = formattedThickness.Replace(",", ".")
+
+                ' Garantir que totalQty tenha pelo menos 3 dígitos e adicionar o sufixo "X"
+                Dim formattedTotalQty As String = totalQty.PadLeft(3, "0"c) & "X"
+
+                ' Criar o nome do arquivo DXF com o prefixo e a nova nomenclatura
+                Dim SetTheFilenameHereFormatted As String = prefix & "-" & formattedSheetNumber & "-" & formattedThickness & "-" & formattedTotalQty & ".dxf"
+
+                ' Gerar o caminho completo para o arquivo DXF
+                Dim fullFilePath As String = SetTheFilePathHere & "\" & SetTheFilenameHereFormatted
+
+                ' Exibir o caminho completo para garantir que está correto
+                MessageBox.Show("Caminho do arquivo DXF: " & fullFilePath)
+
+                ' Atualizar a barra de status
+                ThisApplication.StatusBarText = "Exportando seu DXF, aguarde..."
+
+                ' Selecionar a face e disparar o evento para exportação DXF
+                iDoc.SelectSet.Select(selectedFace)
+                ThisApplication.CommandManager.PostPrivateEvent(kFileNameEvent, fullFilePath)
+
+                ' Executar o comando de exportação
+                Dim oCtrlDef As ButtonDefinition = ThisApplication.CommandManager.ControlDefinitions.Item("GeomToDXFCommand")
+                oCtrlDef.Execute()
+
+                ' Aguarda a geração do DXF antes de adicionar o texto
+                ' Agora, adicionar o texto (propriedade Sheet Number) no DXF exportado
+                ' Chamar a função EditDXFFile para adicionar o texto
+                EditDXFFile(prefix & "-" & sheetNumber, 10.0, 10.0, fullFilePath, formattedSheetNumber)
+
+                ' Aguardar o processo ser concluído
+                ThisApplication.StatusBarText = "Sucesso! - DXF exportado: " & fullFilePath
+                MessageBox.Show("Sucesso! - DXF exportado para: " & fullFilePath, "Exportação DXF")
+            End If
+        Catch ex As Exception
+            MessageBox.Show("Erro ao processar a linha da BOM: " & ex.Message, "Erro de Processamento")
+        End Try
+    Next
+
+    ' Atualizar a barra de status após o término do processo
+    ThisApplication.StatusBarText = "Processo de desdobramento e exportação concluído para todos os componentes."
+    
+    ' oDoc.Close(True) ' Linha removida para manter o documento aberto
+End Sub
+
+' Função para editar o arquivo DXF e adicionar o texto
+Public Sub EditDXFFile(TextToAdd As String, PosX As Double, PosY As Double, FileName As String, IDnumber As String)
+    Dim RequiredText As String = "TEXT" & vbNewLine & "  5" & vbNewLine & IDnumber & vbNewLine & "330" & vbNewLine & "71" & vbNewLine & "100" & vbNewLine & "AcDbEntity" & vbNewLine & "  8" & vbNewLine & "0" & vbNewLine & "100" & vbNewLine & "AcDbText" & vbNewLine & " 10" & vbNewLine & PosX & vbNewLine & " 20" & vbNewLine & PosY &  vbNewLine & " 30" & vbNewLine & "0.0" & vbNewLine & " 40" & vbNewLine & "5.00" & vbNewLine & "  1" & vbNewLine 
+
+    Dim realTextToAdd As String = RequiredText & TextToAdd & vbNewLine & "100" & vbNewLine & "AcDbText" & vbNewLine & "0" & vbNewLine
+
+    Dim textLen As Integer = realTextToAdd.Length()
+
+    Dim readText As String = System.IO.File.ReadAllText(FileName)
+
+    Dim re As New System.Text.RegularExpressions.Regex("(?<=ENTITIES((?!ENDSEC).)*)ENDSEC", System.Text.RegularExpressions.RegexOptions.Singleline)
+
+    Dim i As Integer = 0
+
+    For Each match In re.Matches(readText)
+        readText = readText.Insert(match.Index + textLen * i, realTextToAdd)
+        i = i + 1
+    Next
+
+    System.IO.File.WriteAllText(FileName, readText)
+End Sub

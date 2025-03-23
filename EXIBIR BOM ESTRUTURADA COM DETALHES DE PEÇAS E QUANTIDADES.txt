@@ -1,0 +1,83 @@
+Public Sub Main()
+    ' Defina uma referência ao documento de montagem.
+    ' Isso assume que um documento de montagem está ativo.
+    Dim doc As AssemblyDocument = ThisDoc.Document
+
+    Dim firstLevelOnly As Boolean
+    If MsgBox("Somente primeiro nível?", vbYesNo) = vbYes Then
+        firstLevelOnly = True
+    Else
+        firstLevelOnly = False
+    End If
+
+    ' Defina uma referência à BOM
+    Dim bom As BOM = doc.ComponentDefinition.BOM
+
+    ' Defina se será somente o primeiro nível ou todos os níveis.
+    If firstLevelOnly Then
+        bom.StructuredViewFirstLevelOnly = True
+    Else
+        bom.StructuredViewFirstLevelOnly = False
+    End If
+
+    ' Certifique-se de que a visualização estruturada está habilitada.
+    bom.StructuredViewEnabled = True
+
+    ' Defina uma referência à visualização "Structured" da BOM
+    Dim bomView As BOMView = bom.BOMViews.Item("Structured")
+
+    Logger.Info("Item / Quantidade / Número da Peça / Descrição")
+    Logger.Info("----------------------------------------------------------------------------------")
+
+    ' Inicialize o tab para o ItemNumber
+    Dim itemTab As Long
+    itemTab = -3
+    QueryBOMRowProperties(bomView.BOMRows, itemTab)
+End Sub
+
+Private Sub QueryBOMRowProperties(bomRows As BOMRowsEnumerator, itemTab As Long)
+    itemTab = itemTab + 3
+    ' Itere pelo conteúdo das linhas da BOM.
+    Dim i As Long
+    For i = 1 To bomRows.Count
+        ' Obtenha a linha atual.
+        Dim row As BOMRow = bomRows.Item(i)
+
+        ' Defina uma referência à ComponentDefinition primária da linha
+        Dim compDef As ComponentDefinition = row.ComponentDefinitions.Item(1)
+
+        Dim partNumProperty As [Property]
+        Dim descripProperty As [Property]
+
+        If TypeOf compDef Is VirtualComponentDefinition Then
+            ' Obtenha a propriedade do arquivo que contém o "Número da Peça"
+            ' A propriedade do arquivo é obtida da definição de componente virtual
+            partNumProperty = compDef.PropertySets.Item("Design Tracking Properties").Item("Part Number")
+
+            ' Obtenha a propriedade do arquivo que contém a "Descrição"
+            descripProperty = compDef.PropertySets.Item("Design Tracking Properties").Item("Description")
+
+            Logger.Info(TAB(itemTab) & row.ItemNumber & "/ " & row.ItemQuantity & "/ " & partNumProperty.Value & "/ " & descripProperty.Value)
+        Else
+            ' Obtenha a propriedade do arquivo que contém o "Número da Peça"
+            ' A propriedade do arquivo é obtida do documento pai
+            ' do componente associado.
+            partNumProperty = compDef.Document.PropertySets.Item("Design Tracking Properties").Item("Part Number")
+
+            ' Obtenha a propriedade do arquivo que contém a "Descrição"
+            descripProperty = compDef.Document.PropertySets.Item("Design Tracking Properties").Item("Description")
+
+            Logger.Info(TAB(itemTab) & row.ItemNumber & "/ " & row.ItemQuantity & "/ " & partNumProperty.Value & "/ " & descripProperty.Value)
+
+            ' Itere recursivamente nas linhas-filhas, se houver.
+            If Not row.ChildRows Is Nothing Then
+                QueryBOMRowProperties(row.ChildRows, itemTab)
+            End If
+        End If
+    Next
+    itemTab = itemTab - 3
+End Sub
+
+Private Function TAB(length As Integer) As String
+    Return New String(" ", length)
+End Function

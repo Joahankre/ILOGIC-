@@ -1,0 +1,57 @@
+Sub Main
+    ' Declaração de variáveis
+    Dim oApp As Application
+    Dim oDoc As Document
+    Dim oDD As DrawingDocument
+    Dim oSht As Sheet
+    Dim oDV As DrawingView
+    Dim oModelDoc As Document
+    Dim oPD As PartDocument
+    Dim oSMCD As SheetMetalComponentDefinition
+    Dim oThick As String
+    
+    ' Atribui a aplicação atual ao objeto oApp
+    oApp = ThisApplication
+    
+    ' Loop que percorre todos os documentos visíveis abertos na aplicação
+    For Each oDoc In oApp.Documents.VisibleDocuments
+        ' Verifica se o documento atual é um documento de desenho
+        If oDoc.DocumentType = kDrawingDocumentObject Then
+            oDD = oDoc ' Atribui o documento de desenho à variável oDD
+            
+            ' Loop que percorre todas as folhas (Sheets) do documento de desenho
+            For Each oSht In oDD.Sheets
+                ' Loop que percorre todas as vistas de desenho (DrawingViews) de cada folha
+                For Each oDV In oSht.DrawingViews
+                    ' Atribui o documento referenciado pela vista de desenho à variável oModelDoc
+                    oModelDoc = oDV.ReferencedDocumentDescriptor.ReferencedDocument
+                    
+                    ' Verifica se o documento referenciado é um documento de peça (PartDocument)
+                    If oModelDoc.DocumentType = kPartDocumentObject Then
+                        oPD = oModelDoc ' Atribui o documento de peça à variável oPD
+                        
+                        ' Verifica se a vista de desenho é uma vista de padrão plano (Flat Pattern)
+                        If oDV.IsFlatPatternView = True Then
+                            oSMCD = oPD.ComponentDefinition ' Atribui a definição do componente de chapa metálica à variável oSMCD
+                            
+                            ' Verifica se a espessura da chapa metálica não está sendo controlada pelo estilo de chapa metálica
+                            If oSMCD.UseSheetMetalStyleThickness = False Then
+                                ' Se não estiver, obtém a espessura do componente e converte para milímetros (multiplicando por 10)
+                                oThick = oSMCD.Thickness.Value * 10
+                            Else
+                                ' Se estiver, obtém a espessura do estilo ativo de chapa metálica
+                                oThick = oSMCD.ActiveSheetMetalStyle.Thickness
+                            End If
+                            
+                            ' Exibe o rótulo da vista de desenho
+                            oDV.ShowLabel = True
+                            
+                            ' Define o texto formatado do rótulo, incluindo a espessura da chapa metálica
+                            oDV.Label.FormattedText = "PADRAO PLANO<Br/>" & oThick & "mm"
+                        End If
+                    End If
+                Next
+            Next
+        End If
+    Next
+End Sub

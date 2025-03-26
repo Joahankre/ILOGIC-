@@ -1,0 +1,53 @@
+' Declara a variável oDoc para armazenar o documento de peça (PartDocument)
+Dim oDoc As PartDocument
+
+' Verifica se o documento ativo é do tipo PartDocument (documento de peça)
+If ThisApplication.ActiveDocument.DocumentType = DocumentTypeEnum.kPartDocumentObject Then
+    ' Se for um PartDocument, atribui o documento ativo à variável oDoc
+    oDoc = ThisApplication.ActiveDocument	
+Else
+    ' Caso contrário, solicita ao usuário para selecionar uma ocorrência de peça em um assembly
+    oPart = ThisApplication.CommandManager.Pick(SelectionFilterEnum.kAssemblyLeafOccurrenceFilter, "Select Part")
+    
+    ' Verifica se o usuário selecionou uma peça
+    If oPart IsNot Nothing Then
+        ' Se uma peça foi selecionada, atribui o documento de peça dessa ocorrência à variável oDoc
+        oDoc = oPart.Definition.Document	
+    Else
+        ' Se o usuário não selecionou uma peça, encerra a execução da regra (sai da sub-rotina)
+        Return 'exit rule
+    End If
+End If 
+
+' Declara uma variável para armazenar os ativos de materiais (AssetsEnumerator)
+Dim oMaterialAssets As AssetsEnumerator
+
+' Cria uma lista para armazenar os nomes dos materiais
+Dim oList As New ArrayList
+
+' Preenche a lista com os nomes dos materiais disponíveis na biblioteca ativa de materiais
+For Each oItem In ThisApplication.ActiveMaterialLibrary.MaterialAssets
+    ' Adiciona o nome do material à lista
+    oList.Add(oItem.DisplayName)
+Next
+
+' Ordena a lista de materiais em ordem alfabética
+oList.Sort()
+
+' Obtém o nome do material atualmente aplicado à peça
+oCurrent = oDoc.ComponentDefinition.Material.Name
+
+' Exibe uma caixa de diálogo para o usuário selecionar um material da lista de materiais
+oMaterial = InputListBox("Select One", oList, oCurrent, "iLogic", "List of Materials")
+
+' Verifica se o usuário não selecionou nenhum material (se oMaterial for Nothing)
+If oMaterial Is Nothing Then 
+    ' Se não houver seleção, encerra a execução da regra
+    return
+End If
+
+' Se um material foi selecionado, aplica o material selecionado à peça
+oDoc.ComponentDefinition.Material = oDoc.Materials.Item(oMaterial)
+
+' Garante que o Inventor atualize o modelo após a alteração
+iLogicVb.UpdateWhenDone = True

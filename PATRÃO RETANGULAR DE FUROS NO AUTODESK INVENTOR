@@ -1,0 +1,130 @@
+Sub Main()
+    ' Declara a variável oDoc para armazenar o documento de peça (PartDocument)
+    Dim oDoc As PartDocument = TryCast(ThisDoc.Document, PartDocument)
+
+    ' Verifica se o documento ativo é do tipo PartDocument. Se não for, exibe uma mensagem e encerra o código
+    If oDoc Is Nothing Then
+        MessageBox.Show ("This rule works with part documents only.", "iLogic Rule", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        Exit Sub
+    End If
+
+    ' Atribui a definição do componente da peça (PartComponentDefinition)
+    Dim oDef As PartComponentDefinition = oDoc.ComponentDefinition
+
+    ' Esta regra funciona apenas com um único padrão retangular, diretamente fornecido pelo número do item
+    Dim oPattern As RectangularPatternFeature = oDef.Features.RectangularPatternFeatures.Item(1)
+
+    ' Restaura todos os elementos do padrão para poder acessar suas faces
+    For Each oElt As FeaturePatternElement In oPattern.PatternElements
+        If oElt.Suppressed Then
+            oElt.Suppressed = False
+        End If
+    Next
+
+    ' Atualiza o documento e a visualização ativa
+    oDoc.Update()
+    ThisApplication.ActiveView.Update()
+    Beep()
+
+    ' Obtém o esboço "Boundary"
+    Dim oBoundarySketch As PlanarSketch = oDef.Sketches.Item("Boundary")
+
+    ' Cria um esboço temporário para o perfil
+    Dim oSketch As PlanarSketch = oDef.Sketches.Add(oBoundarySketch.PlanarEntity, False)
+    oSketch.Visible = False
+
+    ' Projeta as entidades do limite (Boundary) no esboço temporário
+    For Each oE As SketchEntity In oBoundarySketch.SketchEntities
+        Call oSketch.AddByProjectingEntity(oE)
+    Next
+
+    ' Projeta o furo pai (parent hole)
+    Dim oHole As HoleFeature = TryCast(oPattern.ParentFeatures.Item(1), HoleFeature)
+    If oHole Is Nothing Then
+        MessageBox.Show ("This rule works with hole feature pattern only.", "iLogic Rule", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        Exit Sub
+    End If
+
+    ' Projeta a borda do primeiro face do furo
+    Dim oEdge As Edge = oHole.SideFaces.Item(1).Edges.Item(1)
+    Call oSketch.AddByProjectingEntity(oEdge)
+
+    ' Projeta os padrões de furos
+    For Each oElt As FeaturePatternElement In oPattern.PatternElements
+        If oElt.Faces.Count > 0 Then
+            oEdge = oElt.Faces.Item(1).Edges.Item(1)
+            Call oSketch.AddByProjectingEntity(oEdge)
+        End If
+    Next
+
+    ' Cria um perfil para a extrusão ou operação sólida
+    Dim oProfile As Profile = oSketch.Profiles.AddForSolid(True)
+
+    ' Para cada caminho no perfil, verifica se é um círculo e realiza a operação de supressão
+    For Each oPath As ProfilePath In oProfile
+        If oPath.Count = 1 Then
+            Dim oPE As ProfileEntity = oPath.Item(1)
+            If oPE.CurveType = Curve2dTypeEnum.kCircleCurve2d Then
+                Dim oSkE As SketchEntity = oPE.SketchEntity
+                Dim oGreenCircle As SketchCircle = CType(oSkE, SketchCircle)
+
+                ' Obtém o elemento correspondente ao círculo verde projetado
+                Dim oFPE As FeaturePatternElement = GetEltByGreenCircle(oGreenCircle)
+                If oFPE IsNot Nothing Then
+                    If oPath.AddsMaterial = True Then
+                        ' Se o material foi adicionado, deve ser suprimido
+                        oFPE.Suppressed = True
+                    End If
+                End If
+            End If
+        End If
+    Next
+
+    ' Deleta o esboço temporário
+    oSketch.Delete()
+    oDoc.Update()
+    Beep()
+End Sub
+
+' Função para obter o elemento correspondente ao círculo verde projetado no esboço
+Function GetEltByGreenCircle(ByRef oGreenCircle As SketchCircle) As FeaturePatternElement
+    ' Verifica se o círculo verde é válido
+    If oGreenCircle Is Nothing Then Return Nothing
+
+    ' Tenta obter a borda do círculo verde
+    Dim oEdge As Edge
+    Try
+        oEdge = CType(oGreenCircle.ReferencedEntity, Edges).Item(1)
+    Catch ex As Exception
+        Return Nothing
+    End Try
+
+    ' Determina qual face do furo foi projetada
+    Dim oFace As Face
+    If oEdge.Faces.Item(1).SurfaceType = SurfaceTypeEnum.kCylinderSurface Then
+        oFace = oEdge.Faces.Item(1)
+    Else
+        oFace = oEdge.Faces.Item(2)
+    End If
+
+    ' Se a face do furo não for criada por um recurso de furo, retorna Nothing
+    If oFace.CreatedByFeature.Type = ObjectTypeEnum.kHoleFeatureObject Then
+        Return Nothing
+    End If
+
+    ' Obtém a chave transitória da face e busca o padrão retangular correspondente
+    Dim lKey As Long = oFace.TransientKey
+    Dim oPattern As RectangularPatternFeature = CType(oFace.CreatedByFeature, RectangularPatternFeature)
+
+    ' Verifica se algum elemento do padrão corresponde à face projetada e retorna
+    For Each oElt As FeaturePatternElement In oPattern.PatternElements
+        If oElt.Faces.Count > 0 Then
+            If lKey = oElt.Faces.Item(1).TransientKey Then
+                Return oElt
+            End If
+        End If
+    Next
+
+    ' Se nenhum elemento for encontrado, retorna Nothing
+    Return Nothing
+End Function

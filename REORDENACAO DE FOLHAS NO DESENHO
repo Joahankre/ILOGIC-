@@ -1,0 +1,39 @@
+Sub principal()
+    ' Declara a variável drawingDoc como DrawingDocument (documento de desenho ativo no Inventor)
+    Dim drawingDoc Como DrawingDocument = ThisDoc.Document
+
+    ' Declara a variável folha como folha (sem valor inicial, será usada para armazenar folhas individuais do desenho)
+    Dim folha As Sheet = Nothing
+    
+    ' Cria uma lista vazia chamada sheetsList, que será usada para armazenar as folhas do desenho
+    Dim sheetsList As New List(Of Sheet)
+
+    ' Obtém o painel de navegador do desenho, especificamente o nó "Modelo" que exibe as folhas no navegador de objetos
+    Dim browserPane Como BrowserPane = drawingDoc.BrowserPanes.Item("Modelo")
+    
+    ' Itera sobre todas as folhas no documento de desenho e as adiciona à lista sheetsList
+    Para cada folha em drawingDoc.Sheets
+        sheetsList.Add(folha) ' Adiciona cada folha à lista
+    Próximo
+    
+    ' Ordena a lista de folhas com base no nome de cada folha (isso é feito através do Comparador)
+    sheetsList.Sort(AddressOf Comparador)
+
+    ' Itera sobre as folhas na lista ordenada
+    Para cada folha em sheetsList
+        ' Obtém o nó do navegador correspondente à folha atual
+        Dim sheetNode como BrowserNode = browserPane.GetBrowserNodeFromObject(folha)
+        
+        ' Obtém o último nó do navegador, que é o nó de topo no painel de navegador
+        Dim bottomNode Como BrowserNode = browserPane.TopNode.BrowserNodes.Item(browserPane.TopNode.BrowserNodes.Count)
+        
+        ' Reorganiza o nó da folha atual para o final da lista de nós, colocando-a no final
+        browserPane.Reorder(bottomNode, False, sheetNode)
+    Próximo
+Fim do Sub
+
+' Função privada que compara duas folhas (por nome) e retorna um valor inteiro para ordenação
+Private Function Comparador(x Como Sheet, y Como Sheet) Como Integer
+    ' Compara os nomes das duas folhas, retornando o resultado da comparação
+    Return String.Compare(x.Name, y.Name)
+Fim da função

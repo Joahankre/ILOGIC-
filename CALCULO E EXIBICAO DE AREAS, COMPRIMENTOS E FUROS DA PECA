@@ -1,0 +1,145 @@
+Sub Main()
+    Dim Units As String = "mm" ' Unidades a exibir
+    Dim oPDoc As PartDocument = ThisDoc.Document
+    Dim oFaceAreas As List(Of Double) = GetAllFaceAreas(oPDoc, Units)
+    Dim oEdgeLengths As List(Of Double) = GetAllEdgeLengths(oPDoc, Units)
+    Dim HolesC, THolesC As Double
+    Call GetHoles(oPDoc, HolesC, THolesC)
+    
+    Dim oFacesTotalArea As Double = oFaceAreas.Sum
+    Dim oEdgesTotalLenth As Double = oEdgeLengths.Sum
+
+    oFaceAreas.Sort() ' Ordena do menor para o maior
+    Dim oMaxFaceArea As Double = oFaceAreas.Last
+    Dim oFaceCount As Integer = oFaceAreas.Count
+    
+    MsgBox("Número de Faces = " & oFaceCount & vbCrLf & _
+           "Maior Área de Face = " & oMaxFaceArea & " " & Units & "²" & vbCrLf & _
+           "Área Total das Faces = " & oFacesTotalArea & " " & Units & "²", , "FACES")
+    
+    'a = InputListBox("", oFaceAreas, "", "ÁREAS DAS FACES", "LISTA DE ÁREAS DAS FACES")
+
+    oEdgeLengths.Sort() ' Ordena do menor para o maior
+    Dim oMaxEdgeLength As Double = oEdgeLengths.Last
+    Dim oEdgeCount As Integer = oEdgeLengths.Count
+    
+    MsgBox("Número de Arestas = " & oEdgeCount & vbCrLf & _
+           "Maior Comprimento de Aresta = " & oMaxEdgeLength & " " & Units & vbCrLf & _
+           "Comprimento Total das Arestas = " & oEdgesTotalLenth & " " & Units, , "ARESTAS")
+    
+    'a = InputListBox("", oEdgeLengths, "", "COMPRIMENTOS DAS ARESTAS", "LISTA DE COMPRIMENTOS DAS ARESTAS")
+    
+    MsgBox("Total de Características = " & oPDoc.ComponentDefinition.Features.Count & vbCrLf & _
+           "Características de Chanfrado = " & oPDoc.ComponentDefinition.Features.ChamferFeatures.Count & vbCrLf & _
+           "Características de Filete = " & oPDoc.ComponentDefinition.Features.FilletFeatures.Count & vbCrLf & _
+           "Características de Rosca = " & oPDoc.ComponentDefinition.Features.ThreadFeatures.Count & vbCrLf & _
+           "Furos Modelados (total) = " & HolesC & vbCrLf & _
+           "Furos Rosqueados = " & THolesC & vbCrLf, , "CARACTERÍSTICAS E FUROS")
+End Sub
+
+Function GetAllFaceAreas(oPartDoc As PartDocument, Units As String) As List(Of Double)
+    Dim oUOM As UnitsOfMeasure = oPartDoc.UnitsOfMeasure
+    Dim oAreas As New List(Of Double)
+    
+    For Each oBody As SurfaceBody In oPartDoc.ComponentDefinition.SurfaceBodies
+        For Each oFace As Face In oBody.Faces
+            oAreas.Add(oUOM.ConvertUnits(oFace.Evaluator.Area, "cm cm", Units & " " & Units))
+        Next
+    Next
+    
+    Return oAreas
+End Function
+
+Function GetAllEdgeLengths(oPartDoc As PartDocument, Units As String) As List(Of Double)
+    Dim wasElliptic As Boolean = False
+    Dim oLengths As New List(Of Double)
+    Dim oUOM As UnitsOfMeasure = oPartDoc.UnitsOfMeasure
+    
+    For Each oBody As SurfaceBody In oPartDoc.ComponentDefinition.SurfaceBodies
+        For Each oEdge As Edge In oBody.Edges
+            Dim oLength As Double
+            Select Case oEdge.GeometryType
+                Case CurveTypeEnum.kLineCurve, kLineSegmentCurve, kPolylineCurve
+                    oEdge.Evaluator.GetLengthAtParam(0.0, 1.0, oLength)
+                Case kCircularArcCurve
+                    Dim oArc As Arc3d = oEdge.Geometry
+                    Dim oRadius As Double = oUOM.ConvertUnits(oArc.Radius, "cm", Units)
+                    oLength = (oRadius * oArc.SweepAngle) ' Comprimento do arco
+                Case kCircleCurve
+                    Dim oCircle As Circle = oEdge.Geometry
+                    Dim oRadius As Double = oUOM.ConvertUnits(oCircle.Radius, "cm", Units)
+                    oLength = (2 * Math.PI * oRadius) ' Circunferência
+                Case kEllipseFullCurve, kEllipticalArcCurve, kBSplineCurve
+                    ' Não processa curvas complexas !!!
+                    wasElliptic = True
+            End Select
+            oLengths.Add(oLength)
+        Next
+    Next
+    
+    Return oLengths
+End Function
+
+Function GetHoles(oPartDoc As PartDocument, ByRef CountHole As Double, ByRef CountTHole As Double)
+    Dim oApp As Application = ThisApplication
+    Dim oFeats = oPartDoc.ComponentDefinition.Features
+    Dim ObjCol1 As ObjectCollection = oApp.TransientObjects.CreateObjectCollection
+    Dim ObjCol2 As ObjectCollection = oApp.TransientObjects.CreateObjectCollection
+    Dim oParentFeat As PartFeature
+    Dim oHoleInPat As HoleFeature
+    Dim oRecPat As RectangularPatternFeature
+    Dim oCirPat As CircularPatternFeature
+
+    For Each oRecPat In oFeats.RectangularPatternFeatures
+        oParentFeat = oRecPat.ParentFeatures.Item(1)
+        If oParentFeat.Type = ObjectTypeEnum.kHoleFeatureObject Then
+            oHoleInPat = oParentFeat
+            Call ObjCol2.Add(oRecPat)
+            If oHoleInPat.Tapped Then Call ObjCol1.Add(oRecPat)
+        End If
+    Next
+
+    For Each oCirPat In oFeats.CircularPatternFeatures
+        oParentFeat = oCirPat.ParentFeatures.Item(1)
+        If oParentFeat.Type = ObjectTypeEnum.kHoleFeatureObject Then
+            oHoleInPat = oParentFeat
+            Call ObjCol2.Add(oCirPat)
+            If oHoleInPat.Tapped Then Call ObjCol1.Add(oCirPat)
+        End If
+    Next
+
+    For Each oHole In oFeats.HoleFeatures
+        ObjCol2.Add(oHole)
+        If oHole.Tapped Then Call ObjCol1.Add(oHole)
+    Next
+
+    Call GetCount(ObjCol1, CountTHole)
+    Call GetCount(ObjCol2, CountHole)
+End Function
+
+' Conta todos os furos individuais (exceto padrões de controle)
+Sub GetCount(ByVal ObjCol1 As ObjectCollection, ByRef CountHole As Double)
+    For i = 1 To ObjCol1.Count
+        On Error Resume Next
+        If ObjCol1.Item(i).Type = ObjectTypeEnum.kHoleFeatureObject Then
+            For Each itemrec In ObjCol1
+                If itemrec.Type = ObjectTypeEnum.kRectangularPatternFeatureObject _
+                    Or itemrec.Type = ObjectTypeEnum.kCircularPatternFeatureObject Then
+                    If ObjCol1.Item(i).Name = itemrec.ParentFeatures.Item(1).Name Then
+                        Call ObjCol1.Remove(i)
+                    End If
+                End If
+            Next
+        End If
+    Next
+
+    CountHole = 0
+    For Each Item In ObjCol1 ' conta, incluindo padrões
+        If Item.Type = ObjectTypeEnum.kRectangularPatternFeatureObject _
+            Or Item.Type = ObjectTypeEnum.kCircularPatternFeatureObject Then
+            CountHole = CountHole + Item.PatternElements.Count
+        ElseIf Item.Type = ObjectTypeEnum.kHoleFeatureObject Then
+            CountHole = CountHole + 1
+        End If
+    Next
+End Sub

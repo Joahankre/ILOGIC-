@@ -1,0 +1,16 @@
+' Este código exclui dimensões não anexadas (doentes) no desenho ativo do Inventor
+
+' Defina uma referência ao documento de desenho ativo
+Dim oDoc como DrawingDocument
+oDoc = ThisDoc.Document ' Obtém o documento ativo, que deve ser um documento de desenho
+
+' Defina uma referência para a planilha ativa
+Dim oSheet como folha
+oSheet = oDoc.ActiveSheet ' Obtém a planilha ativa dentro do documento de desenho
+
+' Itera sobre todas as dimensões no desenho e exclui dimensões não anexadas (doentes)
+Para cada oDrawingDim em oSheet.DrawingDimensions ' Para cada dimensão de desenho na planilha ativa
+    Se oDrawingDim.Attached = Falso, então ' Se a dimensão não estiver anexada a nenhum objeto
+        Chamar oDrawingDim.Delete ' Exclui a dimensão "não anexada" ou "doente"
+    Fim Se
+Próximo ' Avança para a próxima dimensão

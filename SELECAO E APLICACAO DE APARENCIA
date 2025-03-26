@@ -1,0 +1,53 @@
+' Declara a variável oDoc para armazenar o documento de peça (PartDocument)
+Dim oDoc As PartDocument
+
+' Verifica se o documento ativo é do tipo PartDocument (documento de peça)
+If ThisApplication.ActiveDocument.DocumentType = DocumentTypeEnum.kPartDocumentObject Then
+    ' Se for um PartDocument, atribui o documento ativo à variável oDoc
+    oDoc = ThisApplication.ActiveDocument	
+Else
+    ' Caso contrário, solicita ao usuário para selecionar uma ocorrência de peça em um assembly
+    oPart = ThisApplication.CommandManager.Pick(SelectionFilterEnum.kAssemblyLeafOccurrenceFilter, "Select Part")
+    
+    ' Verifica se o usuário selecionou uma peça
+    If oPart IsNot Nothing Then
+        ' Se uma peça foi selecionada, atribui o documento da peça à variável oDoc
+        oDoc = oPart.Definition.Document	
+    Else
+        ' Se o usuário não selecionou uma peça, encerra a execução da regra (sai da sub-rotina)
+        Return 'exit rule
+    End If
+End If 
+
+' Declara uma variável para armazenar os ativos de aparência (AppearanceAssets)
+Dim oMaterialAssets As AssetsEnumerator
+
+' Cria uma lista para armazenar os nomes das aparências (estilos de renderização)
+Dim oList As New ArrayList
+
+' Preenche a lista com os nomes das aparências disponíveis na biblioteca ativa de aparências
+For Each oItem In ThisApplication.ActiveAppearanceLibrary.AppearanceAssets
+    ' Adiciona o nome da aparência à lista
+    oList.Add(oItem.DisplayName)
+Next
+
+' Ordena a lista de aparências em ordem alfabética
+oList.Sort()
+
+' Obtém o nome da aparência atualmente ativa no documento
+oCurrent = oDoc.ActiveRenderStyle.name
+
+' Exibe uma caixa de entrada para o usuário selecionar uma aparência da lista de aparências
+oAppearance = InputListBox("Select One", oList, oCurrent, "iLogic", "List of Appearances")
+
+' Verifica se o usuário não selecionou nenhuma aparência (se oAppearance for Nothing)
+If oAppearance Is Nothing Then 
+    ' Se não houver seleção, encerra a execução da regra
+    Return
+End If
+
+' Se uma aparência foi selecionada, aplica a aparência selecionada ao documento
+oDoc.ActiveRenderStyle = oDoc.RenderStyles.Item(oAppearance)
+
+' Garante que o Inventor atualize o modelo após a alteração
+iLogicVb.UpdateWhenDone = True

@@ -1,0 +1,33 @@
+Sub Main()
+    'Change the material of part 
+    'The part may not be saved
+Dim oAsmCompDef As AssemblyComponentDefinition
+oAsmCompDef = ThisApplication.ActiveDocument.ComponentDefinition
+Dim oPart As ComponentOccurrence
+
+Line1 :
+'''Pick part occurrence
+oPart = ThisApplication.CommandManager.Pick(SelectionFilterEnum.kAssemblyLeafOccurrenceFilter, "Seleccione Pieza")
+	If oPart Is Nothing Then
+		Exit Sub
+	Else
+		
+		Dim oDef As PartDocument
+	    oDef = oPart.Definition.Document	
+		Dim oMaterialAssets As AssetsEnumerator
+		oMaterialAssets = oDef.MaterialAssets
+		Dim oAsset As Asset
+			
+		Dim oAsset_Array As New ArrayList
+		For Each oAsset_Array_X In ThisApplication.ActiveMaterialLibrary.MaterialAssets
+		oAsset_Array.Add(oAsset_Array_X.DisplayName)
+		oAsset_Array.Sort()
+		Next
+		'present the user with the list to choose from
+		100:
+		oAsset_Array_Selected = InputListBox("CHOOSE TEXTURE FROM ABOVE LIST", oAsset_Array, oAsset_Array.Item(0), "TEXTURE SELECTION", "LIST OF TEXTURES")
+		If oAsset_Array_Selected = "" Then GoTo 100:
+		oDef.ComponentDefinition.Material =oDef.Materials.Item(oAsset_Array_Selected )
+		iLogicVb.UpdateWhenDone = True		
+	End If
+End Sub

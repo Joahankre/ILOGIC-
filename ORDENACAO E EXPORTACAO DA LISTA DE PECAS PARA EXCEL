@@ -1,0 +1,25 @@
+On Error Resume Next
+Dim oDrawDoc As DrawingDocument
+oDrawDoc = ThisApplication.ActiveDocument
+Dim oPartsList1 As PartsList
+oPartsList1 = oDrawDoc.ActiveSheet.PartsLists.Item(1)
+If Not oPartsList1 Is Nothing Then 
+    Call oPartsList1.Sort("PART NUMBER") 'ordenar por número da peça
+    oPartsList1.Renumber 'renumerar a lista de peças
+    oPartsList1.SaveItemOverridesToBOM 'salvar as substituições no BOM
+End If
+Dim oDoc As Inventor.DrawingDocument
+oDoc = ThisDoc.Document
+
+Dim oSheet As Inventor.Sheet
+'oSheet = oDoc.Sheets(1) ' primeira folha
+oSheet = oDoc.Sheets("Sheet:1") ' folha pelo nome
+
+' verificar se há uma Partslist na folha.
+Dim oPartslist As PartsList
+oPartslist = oSheet.PartsLists(1)
+
+' exportar a Partslist para Excel.
+'folderName = "C:\temp" 'O arquivo Excel será salvo aqui ou descomente a linha abaixo
+folderName = ThisDoc.Path
+oPartslist.Export(folderName & "\Partslist.xlsx", PartsListFileFormatEnum.kMicrosoftExcel)

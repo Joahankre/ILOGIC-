@@ -1,0 +1,87 @@
+' Declare uma lista para armazenar informações de peças
+Dim partInfo As List(Of String)
+partInfo = New List(Of String)
+
+' Função principal
+If ThisApplication.ActiveDocumentType <> kDrawingDocumentObject Then
+    MessageBox.Show("A drawing must be active.")
+    Return
+End If
+
+' Obtém o documento de desenho ativo
+Dim drawDoc As DrawingDocument = ThisApplication.ActiveDocument
+
+' Obtém a primeira folha
+Dim baseSheet As Sheet = drawDoc.Sheets.Item(1)
+
+' Obtém o BOM do desenho de um balão (assumimos que há apenas uma montagem representada na folha)
+Dim valSet As BalloonValueSet = baseSheet.Balloons.Item(1).BalloonValueSets.Item(1)
+Dim drawBOM As DrawingBOM = valSet.ReferencedRow.Parent
+
+' Redimensiona a lista partInfo com base no número de linhas do BOM
+partInfo.Clear()
+For i As Integer = 1 To drawBOM.DrawingBOMRows.Count
+    partInfo.Add("")
+Next
+
+' Determina qual coluna contém as informações do número do item
+Dim itemColumn As Integer = 0
+For i As Integer = 1 To drawBOM.DrawingBOMColumns.Count
+    If drawBOM.DrawingBOMColumns.Item(i).PropertyType = kItemPartsListProperty Then
+        itemColumn = i
+        Exit For
+    End If
+Next
+
+' Preenche a lista partInfo com os dados do BOM
+For i As Integer = 1 To drawBOM.DrawingBOMRows.Count
+    Dim drawBOMRow As DrawingBOMRow = drawBOM.DrawingBOMRows.Item(i)
+
+    ' Verifica se o componente é do tipo correto (PartComponentDefinition)
+    Try
+        ' Tentativa de acessar a definição de componente de peça
+        Dim partDef As PartComponentDefinition = Nothing
+        If drawBOMRow.BOMRow.ComponentDefinitions.Count > 0 Then
+            ' Se o item de BOM for uma peça, ele será um PartComponentDefinition
+            partDef = TryCast(drawBOMRow.BOMRow.ComponentDefinitions.Item(1), PartComponentDefinition)
+            If partDef IsNot Nothing Then
+                ' Se for um PartComponentDefinition, armazena o nome do arquivo
+                partInfo(i - 1) = partDef.Document.FullFileName
+
+                ' Obtém o número da peça do BOM
+                partInfo(i - 1) = drawBOMRow.Item(itemColumn).Value.ToString()
+            Else
+                ' Caso o componente não seja do tipo PartComponentDefinition, ignora ou trata de outra forma
+                MessageBox.Show("O componente não é do tipo PartComponentDefinition.")
+            End If
+        End If
+    Catch ex As Exception
+        ' Captura qualquer erro relacionado à conversão de tipos
+        MessageBox.Show("Erro ao acessar a definição do componente: " & ex.Message)
+    End Try
+Next
+
+' Itera pelas outras folhas para atualizar os valores dos balões
+For i As Integer = 2 To drawDoc.Sheets.Count
+    Dim currentSheet As Sheet = drawDoc.Sheets.Item(i)
+
+    ' Verifica os balões na folha atual
+    For Each checkBalloon As Balloon In currentSheet.Balloons
+        ' Inicializa o indicador de correspondência
+        Dim matchFound As Boolean = False
+        Dim valueSet As BalloonValueSet = checkBalloon.BalloonValueSets.Item(1)
+        Dim checkFilename As String = valueSet.ReferencedFiles.Item(1).FullFileName
+
+        ' Procura a correspondência no partInfo
+        For j As Integer = 0 To partInfo.Count - 1
+            If checkFilename = partInfo(j) Then
+                ' Se houver correspondência, sobrescreve o valor do balão
+                matchFound = True
+                If valueSet.ItemNumber <> Integer.Parse(partInfo(j)) Then
+                    valueSet.OverrideValue = Integer.Parse(partInfo(j))
+                End If
+                Exit For
+            End If
+        Next
+    Next
+Next

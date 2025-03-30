@@ -1,0 +1,90 @@
+Sub Main()
+    ' Obtenha o documento ativo
+    Dim oDrawDoc As DrawingDocument = ThisApplication.ActiveDocument
+    Dim oActiveSheet As Sheet = oDrawDoc.ActiveSheet
+    Dim oDrawingView As DrawingView = oActiveSheet.DrawingViews.Item(1) ' Obter a primeira vista de desenho
+    
+    ' Obtenha o documento de Assembly
+    Dim oAssemblyDoc As AssemblyDocument = oDrawingView.ReferencedDocumentDescriptor.ReferencedDocument
+    Dim oTG As TransientGeometry = ThisApplication.TransientGeometry
+    
+    ' Configurar o estilo da vista
+    oDrawingView.ViewStyle = 32257
+    
+    ' Iterar através das ocorrências da montagem
+    Dim oOccs As ComponentOccurrences = oAssemblyDoc.ComponentDefinition.Occurrences
+    For Each oOcc As ComponentOccurrence In oOccs
+        ' Se a ocorrência for uma submontagem, recursivamente chamar o método para buscar submontagens
+        If oOcc.DefinitionDocumentType = 12291 Then ' Submontagem
+            TraverseSubAssy(oActiveSheet, oDrawingView, oTG, oOcc.SubOccurrences)
+        Else
+            ' Caso contrário, criar o balão para a ocorrência
+            CreateBalloon(oActiveSheet, oDrawingView, oTG, oOcc)
+        End If
+    Next
+    
+    ' Alterar o estilo da vista novamente para o estado original
+    oDrawingView.ViewStyle = 32258
+End Sub
+
+' Método recursivo para percorrer submontagens
+Sub TraverseSubAssy(oActiveSheet As Sheet, oDrawingView As DrawingView, oTG As TransientGeometry, oOccs As ComponentOccurrences)
+    For Each oOcc As ComponentOccurrence In oOccs
+        ' Verifique se é uma submontagem
+        If oOcc.DefinitionDocumentType = 12291 Then ' Submontagem
+            TraverseSubAssy(oActiveSheet, oDrawingView, oTG, oOcc.SubOccurrences)
+        Else
+            ' Se não for, criar o balão para a ocorrência
+            CreateBalloon(oActiveSheet, oDrawingView, oTG, oOcc)
+        End If
+    Next
+End Sub
+
+' Função para criar balões para as ocorrências
+Sub CreateBalloon(oActiveSheet As Sheet, oDrawingView As DrawingView, oTG As TransientGeometry, oOcc As ComponentOccurrence)
+    Dim oModelDoc As PartDocument
+    oModelDoc = oOcc.Definition.Document
+
+    ' Verificar se o documento de parte tem objetos com atributo "Balloon"
+    Dim oObjs As ObjectCollection = oModelDoc.AttributeManager.FindObjects("Balloon")
+    
+    If oObjs.Count = 0 Then
+        ' Se não houver objetos de balão, apenas saia
+        Debug.Print("Nenhum objeto de balão encontrado para a ocorrência: " & oOcc.Name)
+        Exit Sub
+    End If
+
+    ' Se houver, pegamos a primeira face ou o primeiro objeto encontrado
+    Dim oFace As Face = oObjs.Item(1)
+    Dim oFaceProxy As FaceProxy
+    oOcc.CreateGeometryProxy(oFace, oFaceProxy)
+
+    ' Obter as curvas de desenho associadas a essa face proxy
+    Dim oDrawCurves As DrawingCurvesEnumerator = oDrawingView.DrawingCurves(oFaceProxy)
+    Dim oDrawingCurve As DrawingCurve = oDrawCurves.Item(1)
+    
+    ' Obter o ponto médio da curva de desenho
+    Dim midPoint As Point2d = oDrawingCurve.MidPoint
+    
+    ' Definir os pontos do líder para o balão
+    Dim oLeaderPoints As ObjectCollection = ThisApplication.TransientObjects.CreateObjectCollection
+    If midPoint.X > oDrawingView.Position.X Then
+        oLeaderPoints.Add(oTG.CreatePoint2d(midPoint.X + 2, midPoint.Y - 1))
+    Else
+        oLeaderPoints.Add(oTG.CreatePoint2d(midPoint.X - 2, midPoint.Y - 1))
+    End If
+
+    ' Adicionar o ponto final do líder (onde o balão será anexado)
+    Dim geoIntent As GeometryIntent = oActiveSheet.CreateGeometryIntent(oDrawingCurve, 0.5)
+    oLeaderPoints.Add(geoIntent)
+
+    ' Criar o balão no desenho
+    Dim oBalloon As Balloon = oActiveSheet.Balloons.Add(oLeaderPoints)
+    
+    ' Se o balão for criado com sucesso, defina o texto do balão (usando o nome da ocorrência)
+    If Not oBalloon Is Nothing Then
+        oBalloon.Text = oOcc.Name
+    Else
+        Debug.Print("Falha ao criar balão para a ocorrência: " & oOcc.Name)
+    End If
+End Sub

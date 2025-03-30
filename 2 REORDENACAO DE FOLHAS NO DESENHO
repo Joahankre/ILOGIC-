@@ -1,0 +1,86 @@
+Sub Main()
+    ' Tenta obter o documento ativo como um DrawingDocument
+    Dim drawingDoc As DrawingDocument = TryCast(ThisDoc.Document, DrawingDocument)
+
+    If drawingDoc Is Nothing Then
+        MsgBox("Erro: Documento de desenho não encontrado.")
+        Exit Sub
+    End If
+
+    ' Declara a variável folha como Sheet (sem valor inicial, será usada para armazenar folhas individuais do desenho)
+    Dim folha As Sheet = Nothing
+    
+    ' Cria uma lista vazia chamada sheetsList, que será usada para armazenar as folhas do desenho
+    Dim sheetsList As New List(Of Sheet)
+
+    ' Tenta obter o painel de navegador do desenho
+    Dim browserPane As BrowserPane = Nothing
+
+    Try
+        ' Acessa o painel correto "Model"
+        browserPane = drawingDoc.BrowserPanes.Item("Model")
+    Catch ex As Exception
+        MsgBox("Erro ao obter o painel de navegador: " & ex.Message)
+        Exit Sub
+    End Try
+
+    If browserPane Is Nothing Then
+        MsgBox("Erro: Painel de navegador 'Model' não encontrado.")
+        Exit Sub
+    End If
+
+    ' Itera sobre todas as folhas no documento de desenho e as adiciona à lista sheetsList
+    For Each folha In drawingDoc.Sheets
+        sheetsList.Add(folha) ' Adiciona cada folha à lista
+    Next
+    
+    ' Ordena a lista de folhas com base no nome de cada folha (isso é feito através do Comparador)
+    sheetsList.Sort(AddressOf Comparador)
+
+    ' Itera sobre as folhas na lista ordenada
+    For Each folha In sheetsList
+        ' Obtém o nó do navegador correspondente à folha atual
+        Dim sheetNode As BrowserNode = Nothing
+        Try
+            sheetNode = browserPane.GetBrowserNodeFromObject(folha)
+        Catch ex As Exception
+            MsgBox("Erro ao obter o nó da folha: " & ex.Message)
+            Continue For
+        End Try
+
+        ' Verifica se o nó da folha foi obtido com sucesso
+        If sheetNode Is Nothing Then
+            MsgBox("Erro: Nó da folha não encontrado.")
+            Continue For
+        End If
+
+        ' Obtém o último nó do navegador, que é o nó de topo no painel de navegador
+        Dim bottomNode As BrowserNode = Nothing
+        Try
+            bottomNode = browserPane.TopNode.BrowserNodes.Item(browserPane.TopNode.BrowserNodes.Count)
+        Catch ex As Exception
+            MsgBox("Erro ao obter o último nó: " & ex.Message)
+            Continue For
+        End Try
+
+        ' Verifica se o nó final foi obtido corretamente
+        If bottomNode Is Nothing Then
+            MsgBox("Erro: Último nó não encontrado.")
+            Continue For
+        End If
+
+        ' Reorganiza o nó da folha atual para o final da lista de nós, colocando-a no final
+        Try
+            browserPane.Reorder(bottomNode, False, sheetNode)
+        Catch ex As Exception
+            MsgBox("Erro ao reorganizar o nó: " & ex.Message)
+            Continue For
+        End Try
+    Next
+End Sub
+
+' Função privada que compara duas folhas (por nome) e retorna um valor inteiro para ordenação
+Private Function Comparador(x As Sheet, y As Sheet) As Integer
+    ' Compara os nomes das duas folhas, retornando o resultado da comparação
+    Return String.Compare(x.Name, y.Name)
+End Function

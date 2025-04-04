@@ -1,0 +1,80 @@
+If ThisApplication.ActiveDocumentType <> DocumentTypeEnum.kDrawingDocumentObject Then
+	MsgBox("A Drawing Document must be active for this rule (" & iLogicVb.RuleName & ") to work. Exiting.",vbOKOnly+vbCritical, "WRONG DOCUMENT TYPE")
+	Exit Sub
+End If
+Dim oDrawing As DrawingDocument = ThisDrawing.Document
+Dim oSheetsCount As Integer = oDrawing.Sheets.Count
+
+Dim oInstructions As String = "Enter the sheet numbers you want to publish to PDF." & vbCrLf & _
+"Use commas, to separate individual sheet numbers, and to separate sheet ranges." & vbCrLf & _
+"Use a dash (-) between two numbers to specify a sheet range." & vbCrLf & _
+"NO SPACES!"
+Dim oInputSheets As String = InputBox(oInstructions, "Sheets To Publish", "1-" & oSheetsCount)
+'split that string up into an array of individual strings so they can be more easily interpreted
+Dim oSheetRanges() As String = Split(oInputSheets, ",")
+Dim oSheetCol As ObjectCollection = ThisApplication.TransientObjects.CreateObjectCollection
+Dim oRangeStart, oRangeEnd As Integer
+For Each oSR As String In oSheetRanges
+	'check to see if the string includes the "-" character
+	If oSR.Contains("-") Then
+		'it is a sheet range, so get the two numbers
+		oRangeStart = CInt(Split(oSR, "-")(0))
+		oRangeEnd = CInt(Split(oSR, "-")(1))
+		For i As Integer = oRangeStart To oRangeEnd
+			oSheetCol.Add(oDrawing.Sheets.Item(i))
+		Next
+	Else
+		oSheetCol.Add(oDrawing.Sheets.Item(CInt(oSR)))
+	End If
+Next
+
+Dim oPath As String = IO.Path.GetDirectoryName(oDrawing.FullFileName)
+Dim oFileName As String = IO.Path.GetFileNameWithoutExtension(oDrawing.FullFileName)
+
+'get PDF target folder path
+Dim oFolder As String = Left(oPath, InStrRev(oPath, "\")) & "PDF"
+
+'Check for the PDF folder and create it if it does not exist
+If Not System.IO.Directory.Exists(oFolder) Then
+    System.IO.Directory.CreateDirectory(oFolder)
+End If
+
+Dim oPDFAddIn As TranslatorAddIn = ThisApplication.ApplicationAddIns.ItemById _
+("{0AC6FD96-2F4D-42CE-8BE0-8AEA580399E4}")
+Dim oContext As TranslationContext = ThisApplication.TransientObjects.CreateTranslationContext
+oContext.Type = IOMechanismEnum.kFileBrowseIOMechanism 
+Dim oOptions As NameValueMap = ThisApplication.TransientObjects.CreateNameValueMap
+Dim oDataMedium As DataMedium = ThisApplication.TransientObjects.CreateDataMedium
+
+oOptions.Value("All_Color_AS_Black") = 0
+oOptions.Value("Remove_Line_Weights") = 0
+oOptions.Value("Vector_Resolution") = 4800
+oOptions.Value("Sheet_Range") = Inventor.PrintRangeEnum.kPrintCurrentSheet
+
+Dim oSheet As Sheet
+Dim lPos As Long
+Dim rPos As Long
+Dim sLen As Long
+Dim sSheetName As String
+Dim iSheetNumber As Integer
+
+'step through each drawing sheet
+For Each oSheet In oSheetCol
+	oSheet.Activate
+	'find the seperator in the sheet name:number
+	lPos = InStr(oSheet.Name, ":")
+	'find the number of characters in the sheet name
+	sLen = Len(oSheet.Name)
+	'find the sheet name
+	sSheetName = Left(oSheet.Name, lPos -1)
+	'find the sheet number
+	iSheetNumber = Right(oSheet.Name, sLen -lPos)
+	
+	'Set the PDF target file name
+	oDataMedium.FileName = oFolder & "\" & sSheetName & " " & iSheetNumber  & ".pdf"
+	
+	'Publish document
+	oPDFAddIn.SaveCopyAs(oDrawing, oContext, oOptions, oDataMedium)
+Next
+'Activate the first sheet again
+oDrawing.Sheets.Item(1).Activate

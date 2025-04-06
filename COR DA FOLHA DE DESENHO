@@ -1,0 +1,35 @@
+Public Sub Main()
+	'Switches the colour of ALL of the Drawing Sheets, based on the Drawing Sheet Colour
+	'If the Colour is white, it will go to Default Beige
+	'If the Colour Default Beige, it will go White
+
+	Dim oDwg As DrawingDocument = ThisApplication.ActiveDocument
+	'Set the Parameters for the White Sheet Colour
+	Dim oWhite As Color = ThisApplication.TransientObjects.CreateColor(255, 255, 255) ' White
+	Dim oWhiteRGB As String = String.Format("{0}, {1}, {2}", oWhite.Red, oWhite.Green, oWhite.Blue)
+
+	'Set the Parameters for the Default Beige Sheet Colour
+	Dim oBeige As Color = ThisApplication.TransientObjects.CreateColor(235, 234, 219) ' Default Beige
+	Dim oBeigeRGB As String = String.Format("{0}, {1}, {2}", oBeige.Red, oBeige.Green, oBeige.Blue)
+
+	'Get the colour of the Drawing Sheets
+	Dim oShtColour As Color = oDwg.SheetSettings.SheetColor
+	Dim oShtColourRGB As String = String.Format("{0}, {1}, {2}", oShtColour.Red, oShtColour.Green, oShtColour.Blue)
+
+	'Change the colour of ALL Sheets
+	If oShtColourRGB = oWhiteRGB Then
+		oDwg.SheetSettings.SheetColor = oBeige
+	ElseIf oShtColourRGB = oBeigeRGB Then
+		oDwg.SheetSettings.SheetColor = oWhite
+	Else
+		'Do Nothing
+		i = MessageBox.Show("Not a Standard Sheet Colour!  Do you want to change it to the Default Beige?", "Standard Sheet Colour!", MessageBoxButtons.YesNo)
+
+		If i = vbYes Then
+			oDwg.SheetSettings.SheetColor = oBeige
+		Else
+		End If
+
+	End If
+
+End Sub

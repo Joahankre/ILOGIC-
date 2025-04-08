@@ -1,0 +1,36 @@
+' Define uma referência ao documento de montagem.  
+' Assumindo que um documento de montagem está ativo.  
+Dim oDoc As AssemblyDocument  
+oDoc = ThisApplication.ActiveDocument  
+
+' Variável para controlar se a BOM deve ser ordenada.  
+Dim SortBOM As Boolean  
+If MsgBox("Ordenar BOM" & vbLf & vbLf & "Você deseja continuar?", vbYesNo) = vbYes Then  
+    SortBOM = True  
+Else  
+    SortBOM = False  
+End If  
+
+' Define uma referência à BOM (Bill of Materials).  
+Dim oBOM As BOM  
+oBOM = oDoc.ComponentDefinition.BOM  
+
+' Define se será vista apenas a primeira camada ou todas as camadas.  
+If SortBOM Then  
+    oBOM.PartsOnlyViewEnabled = True ' Ativa a visualização apenas com peças.  
+Else  
+    Return ' Sai do sub se o usuário optar por não ordenar a BOM.  
+End If  
+
+' Garante que a visualização estruturada esteja habilitada.  
+oBOM.PartsOnlyViewEnabled = True  
+
+' Define uma referência à visualização "Parts Only" da BOM.  
+Dim oBOMView As BOMView  
+oBOMView = oBOM.BOMViews.Item("Parts Only")  
+
+' Ordena a BOM pela visualização estruturada pelo "Número da Peça" e pela "Descrição".  
+Call oBOMView.Sort("Número da Peça", True, "Descrição", True) ' True significa ordem crescente. Use False para decrescente.  
+
+' Renumera a BOM, começando em 1.  
+Call oBOMView.Renumber(1, 1)

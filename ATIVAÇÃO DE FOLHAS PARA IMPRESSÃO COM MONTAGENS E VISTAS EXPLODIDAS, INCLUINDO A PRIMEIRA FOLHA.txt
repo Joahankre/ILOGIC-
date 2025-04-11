@@ -1,0 +1,54 @@
+' iLogic: Ativar folhas para impressão com montagens ou vistas explodidas representadas no desenho
+
+' Obter o documento de desenho ativo
+Dim oDoc As DrawingDocument = ThisApplication.ActiveDocument
+
+' Verificar se o documento é um desenho
+If oDoc.DocumentType <> DocumentTypeEnum.kDrawingDocumentObject Then
+    MessageBox.Show("Este não é um documento de desenho.")
+    Return
+End If
+
+' Iterar sobre todas as folhas do desenho, excluindo todas da impressão inicialmente
+For Each drawSheet As Sheet In oDoc.Sheets
+    drawSheet.ExcludeFromPrinting = True ' Excluir todas as folhas da impressão por padrão
+Next
+
+' Iterar sobre todas as vistas de desenho nas folhas
+For Each drawSheet As Sheet In oDoc.Sheets
+    ' Verificar se há vistas no desenho (por exemplo, vistas de peças ou montagens)
+    For Each drawingView As DrawingView In drawSheet.DrawingViews
+        ' Se a vista estiver associada a uma peça ou montagem no desenho
+        Dim oModel As Document = DrawingView.ReferencedDocumentDescriptor.ReferencedDocument
+        If oModel IsNot Nothing Then
+            ' Verificar se o documento referenciado é uma montagem (arquivo .iam)
+            If oModel.DocumentType = DocumentTypeEnum.kAssemblyDocumentObject Then
+                ' Se o documento for uma montagem, inclui a folha na impressão
+                drawSheet.ExcludeFromPrinting = False ' Ativa a folha para impressão
+
+                ' Exibir a mensagem com a montagem que foi identificada
+                MessageBox.Show("A folha " & drawSheet.Name & " contém a montagem " & oModel.DisplayName)
+
+                ' A folha já foi ativada, então interrompe a busca por outras vistas nesta folha
+                Exit For
+            ' Verificar se a vista está associada a um arquivo de apresentação (.ipn)
+            ElseIf oModel.DocumentType = DocumentTypeEnum.kPresentationDocumentObject Then
+                ' Se o documento for uma apresentação, inclui a folha na impressão
+                drawSheet.ExcludeFromPrinting = False ' Ativa a folha para impressão
+
+                ' Exibir a mensagem com a vista explodida que foi identificada
+                MessageBox.Show("A folha " & drawSheet.Name & " contém uma vista explodida: " & oModel.DisplayName)
+
+                ' A folha já foi ativada, então interrompe a busca por outras vistas nesta folha
+                Exit For
+            End If
+        End If
+    Next
+Next
+
+' Garantir que a primeira folha seja sempre ativada para impressão
+If oDoc.Sheets.Count > 0 Then
+    Dim firstSheet As Sheet = oDoc.Sheets(1)
+    firstSheet.ExcludeFromPrinting = False ' Ativa a primeira folha para impressão
+    MessageBox.Show("A primeira folha (" & firstSheet.Name & ") foi ativada para impressão.")
+End If

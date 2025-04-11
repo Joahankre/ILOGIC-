@@ -1,0 +1,300 @@
+Sub Main()
+    ' Opções para o usuário selecionar na ordem solicitada
+    Dim oOptions() As String = {"TORNAR OPERAÇÕES SILENCIOSAS", _
+                                "EXCLUIR TODAS AS FOLHAS PARA IMPRESSÃO", _
+                                "INCLUIR TODAS AS FOLHAS PARA IMPRESSÃO", _
+                                "CHAPA METALICAS COM DOBRAS", _
+                                "MONTAGENS", _
+                                "TUBOS", _
+                                "TUBOS COM FUROS"}
+
+    ' Chama a função de seleção múltipla
+    Dim Selected As List(Of String) = MultiSelectListBox("Select Some", oOptions, Nothing, "Multi-Select InputListBox", "MINHA LISTA DE CADERNOS")
+    
+    ' Variável para determinar se as mensagens serão silenciosas
+    Dim silentMode As Boolean = False
+
+    ' Verifica se o usuário selecionou algo
+    If Selected Is Nothing OrElse Selected.Count = 0 Then
+        MessageBox.Show("Nada foi selecionado da lista.", "Nenhuma Seleção", MessageBoxButtons.OK, MessageBoxIcon.Exclamation)
+    Else
+        ' Processa as opções selecionadas
+        For Each sOption As String In Selected
+            If sOption = "TORNAR OPERAÇÕES SILENCIOSAS" Then
+                ' Ativa o modo silencioso
+                silentMode = True
+                MessageBox.Show("As operações seguintes serão silenciosas e não exibirão mensagens.", "Modo Silencioso Ativado")
+            ElseIf sOption = "EXCLUIR TODAS AS FOLHAS PARA IMPRESSÃO" Then
+                ' Chama a função para excluir todas as folhas da impressão no desenho ativo
+                ExcluirFolhasDaImpressao(silentMode)
+            ElseIf sOption = "INCLUIR TODAS AS FOLHAS PARA IMPRESSÃO" Then
+                ' Chama a função para incluir todas as folhas na impressão no desenho ativo
+                IncluirFolhasNaImpressao(silentMode)
+            ElseIf sOption = "CHAPA METALICAS COM DOBRAS" Then
+                ' Chama a função para ativar folhas com chapa metálica dobrada
+                AtivarFolhasComChapasMetalicasDobras(silentMode)
+            ElseIf sOption = "MONTAGENS" Then
+                ' Chama a função para ativar folhas com montagens ou vistas explodidas
+                AtivarFolhasComMontagensOuVistasExplodidas(silentMode)
+            ElseIf sOption = "TUBOS" Then
+                ' Chama a função associada à opção 3
+                AtivarFolhasComPeçasFrameGenerator(silentMode)
+            ElseIf sOption = "TUBOS COM FUROS" Then
+                ' Chama a função para detectar peças Frame Generator e furos
+                AtivarFolhasComPeçasFrameGenerator(silentMode)
+            End If
+        Next
+    End If
+End Sub
+
+' Função para criar uma caixa de seleção múltipla
+Function MultiSelectListBox(Optional Instructions As String = vbNullString, _
+Optional Items As IEnumerable = Nothing, Optional DefaultValue As Object = Nothing, _
+Optional Title As String = Nothing, Optional ListName As String = Nothing) As List(Of String)
+    Using oILBD As New InputListBoxDialog(Title, ListName, Instructions, Items, DefaultValue)
+        Dim oLB As System.Windows.Forms.ListBox = oILBD.Controls.Item(0).Controls.Item(2)
+        oLB.SelectionMode = System.Windows.Forms.SelectionMode.MultiSimple
+        Dim oDlgResult As System.Windows.Forms.DialogResult = oILBD.ShowDialog()
+        Dim oSOC As ListBox.SelectedObjectCollection = oLB.SelectedItems
+        If (oSOC Is Nothing) OrElse (oSOC.Count = 0) Then
+            Return Nothing
+        Else
+            Return oSOC.Cast(Of String).ToList
+        End If
+    End Using
+End Function
+
+' Função para excluir todas as folhas da impressão no desenho ativo
+Sub ExcluirFolhasDaImpressao(silentMode As Boolean)
+    ' Recebe o documento de desenho ativo
+    Dim drawDoc As DrawingDocument
+    drawDoc = ThisDoc.Document
+
+    ' Itera através das folhas do desenho
+    For Each drawSheet As Sheet In drawDoc.Sheets
+        ' Exclui a folha da impressão
+        drawSheet.ExcludeFromPrinting = True
+    Next
+
+    If Not silentMode Then
+        MessageBox.Show("Todas as folhas foram excluídas da impressão.")
+    End If
+End Sub
+
+' Função para incluir todas as folhas na impressão no desenho ativo
+Sub IncluirFolhasNaImpressao(silentMode As Boolean)
+    ' Recebe o documento de desenho ativo
+    Dim drawDoc As DrawingDocument
+    drawDoc = ThisDoc.Document
+
+    ' Itera através das folhas do desenho
+    For Each drawSheet As Sheet In drawDoc.Sheets
+        ' Inclui a folha na impressão
+        drawSheet.ExcludeFromPrinting = False
+    Next
+
+    If Not silentMode Then
+        MessageBox.Show("Todas as folhas foram incluídas para impressão.")
+    End If
+End Sub
+
+' Função para ativar folhas com chapa metálica dobrada
+Sub AtivarFolhasComChapasMetalicasDobras(silentMode As Boolean)
+    ' Obter o documento de desenho ativo
+    Dim oDoc As DrawingDocument = ThisApplication.ActiveDocument
+
+    ' Verificar se o documento é um desenho
+    If oDoc.DocumentType <> DocumentTypeEnum.kDrawingDocumentObject Then
+        If Not silentMode Then
+            MessageBox.Show("Este não é um documento de desenho.")
+        End If
+        Return
+    End If
+
+    ' Iterar sobre todas as folhas do desenho, excluindo todas da impressão inicialmente
+    For Each drawSheet As Sheet In oDoc.Sheets
+        drawSheet.ExcludeFromPrinting = True ' Excluir todas as folhas da impressão por padrão
+    Next
+
+    ' Iterar sobre todas as vistas de desenho nas folhas
+    For Each drawSheet As Sheet In oDoc.Sheets
+        For Each drawingView As DrawingView In drawSheet.DrawingViews
+            Dim oModel As Document = DrawingView.ReferencedDocumentDescriptor.ReferencedDocument
+            If oModel IsNot Nothing Then
+                If oModel.DocumentSubType.DocumentSubTypeID = "{9C464203-9BAE-11D3-8BAD-0060B0CE6BB4}" Then
+                    If oModel.DocumentType = DocumentTypeEnum.kPartDocumentObject Then
+                        Dim sm As SheetMetalComponentDefinition = TryCast(oModel.ComponentDefinition, SheetMetalComponentDefinition)
+
+                        If sm IsNot Nothing AndAlso sm.Bends.Count > 0 Then
+                            If Not silentMode Then
+                                MessageBox.Show("A peça " & oModel.DisplayName & " contém " & sm.Bends.Count & " dobras. " & vbCrLf & _
+                                                "Nome da folha: " & drawSheet.Name)
+                            End If
+
+                            ' Incluir a folha na impressão (Ativar)
+                            drawSheet.ExcludeFromPrinting = False ' Ativa a folha para impressão
+
+                            Exit For
+                        End If
+                    End If
+                End If
+            End If
+        Next
+    Next
+
+    ' Garantir que a primeira folha seja sempre ativada para impressão
+    If oDoc.Sheets.Count > 0 Then
+        Dim firstSheet As Sheet = oDoc.Sheets(1)
+        firstSheet.ExcludeFromPrinting = False ' Ativa a primeira folha para impressão
+        If Not silentMode Then
+            MessageBox.Show("A primeira folha (" & firstSheet.Name & ") foi ativada para impressão.")
+        End If
+    End If
+End Sub
+
+' Função para ativar folhas com montagens ou vistas explodidas
+Sub AtivarFolhasComMontagensOuVistasExplodidas(silentMode As Boolean)
+    ' Obter o documento de desenho ativo
+    Dim oDoc As DrawingDocument = ThisApplication.ActiveDocument
+
+    ' Verificar se o documento é um desenho
+    If oDoc.DocumentType <> DocumentTypeEnum.kDrawingDocumentObject Then
+        If Not silentMode Then
+            MessageBox.Show("Este não é um documento de desenho.")
+        End If
+        Return
+    End If
+
+    ' Iterar sobre todas as folhas do desenho, excluindo todas da impressão inicialmente
+    For Each drawSheet As Sheet In oDoc.Sheets
+        drawSheet.ExcludeFromPrinting = True ' Excluir todas as folhas da impressão por padrão
+    Next
+
+    ' Iterar sobre todas as vistas de desenho nas folhas
+    For Each drawSheet As Sheet In oDoc.Sheets
+        For Each drawingView As DrawingView In drawSheet.DrawingViews
+            Dim oModel As Document = DrawingView.ReferencedDocumentDescriptor.ReferencedDocument
+            If oModel IsNot Nothing Then
+                If oModel.DocumentType = DocumentTypeEnum.kAssemblyDocumentObject Then
+                    drawSheet.ExcludeFromPrinting = False ' Ativa a folha para impressão
+                    If Not silentMode Then
+                        MessageBox.Show("A folha " & drawSheet.Name & " contém a montagem " & oModel.DisplayName)
+                    End If
+                    Exit For
+                ElseIf oModel.DocumentType = DocumentTypeEnum.kPresentationDocumentObject Then
+                    drawSheet.ExcludeFromPrinting = False ' Ativa a folha para impressão
+                    If Not silentMode Then
+                        MessageBox.Show("A folha " & drawSheet.Name & " contém uma vista explodida: " & oModel.DisplayName)
+                    End If
+                    Exit For
+                End If
+            End If
+        Next
+    Next
+
+    ' Garantir que a primeira folha seja sempre ativada para impressão
+    If oDoc.Sheets.Count > 0 Then
+        Dim firstSheet As Sheet = oDoc.Sheets(1)
+        firstSheet.ExcludeFromPrinting = False ' Ativa a primeira folha para impressão
+        If Not silentMode Then
+            MessageBox.Show("A primeira folha (" & firstSheet.Name & ") foi ativada para impressão.")
+        End If
+    End If
+End Sub
+
+' Função para ativar folhas com peças criadas com o Frame Generator
+Sub AtivarFolhasComPeçasFrameGenerator(silentMode As Boolean)
+    ' Obter o documento de desenho ativo
+    Dim oDoc As DrawingDocument = ThisApplication.ActiveDocument
+
+    ' Verificar se o documento é um desenho
+    If oDoc.DocumentType <> DocumentTypeEnum.kDrawingDocumentObject Then
+        If Not silentMode Then
+            MessageBox.Show("Este não é um documento de desenho.")
+        End If
+        Return
+    End If
+
+    ' Iterar sobre todas as folhas do desenho, excluindo todas da impressão inicialmente
+    For Each drawSheet As Sheet In oDoc.Sheets
+        drawSheet.ExcludeFromPrinting = True ' Excluir todas as folhas da impressão por padrão
+    Next
+
+    ' Iterar novamente sobre as folhas para verificar vistas
+    For Each drawSheet As Sheet In oDoc.Sheets
+        ' Verifica se a folha tem uma vista principal (base view)
+        Dim mainView As DrawingView = Nothing
+
+        ' A primeira vista criada geralmente é a vista base
+        If drawSheet.DrawingViews.Count > 0 Then
+            mainView = drawSheet.DrawingViews(1) ' Considera a primeira vista como a principal
+        End If
+
+        ' Verifica se foi encontrada a vista principal
+        If mainView IsNot Nothing Then
+            ' Verifica se a vista principal tem um documento de modelo associado
+            If mainView.ReferencedDocumentDescriptor IsNot Nothing Then
+                Dim oModel As Document = mainView.ReferencedDocumentDescriptor.ReferencedDocument
+
+                ' Verifica se o modelo associado é válido
+                If oModel IsNot Nothing Then
+                    ' Verifica se o modelo é uma peça (IPT)
+                    If oModel.DocumentType = DocumentTypeEnum.kPartDocumentObject Then
+                        ' Verifica se a peça foi criada com o Frame Generator
+                        If oModel.DocumentInterests.HasInterest("{AC211AE0-A7A5-4589-916D-81C529DA6D17}") Then
+                            If Not silentMode Then
+                                ' Mensagem de confirmação para peça criada com Frame Generator
+                                MessageBox.Show("A peça " & oModel.DisplayName & " foi criada com o Frame Generator." & vbCrLf & _
+                                                "Nome da folha: " & drawSheet.Name)
+                            End If
+                            ' Detecta furos na peça na vista principal
+                            DetectHoles(mainView, drawSheet, silentMode)
+                        End If
+                    End If
+                End If
+            End If
+        End If
+    Next
+
+    ' Garante que a primeira folha seja sempre ativada para impressão
+    If oDoc.Sheets.Count > 0 Then
+        Dim firstSheet As Sheet = oDoc.Sheets(1)
+        firstSheet.ExcludeFromPrinting = False ' Ativa a primeira folha para impressão
+        If Not silentMode Then
+            MessageBox.Show("A primeira folha (" & firstSheet.Name & ") foi ativada para impressão.")
+        End If
+    End If
+End Sub
+
+' Função para detectar furos em uma vista de desenho
+Private Sub DetectHoles(drawingView As DrawingView, drawSheet As Sheet, silentMode As Boolean)
+    ' Lista para armazenar os furos encontrados
+    Dim _holes As New Collection
+
+    ' Itera sobre todas as curvas da vista de desenho
+    For Each drawingCurve As DrawingCurve In drawingView.DrawingCurves
+        ' Verifica se a curva é do tipo círculo ou arco (representando um furo)
+        Select Case DrawingCurve.ProjectedCurveType
+            Case Curve2dTypeEnum.kCircleCurve2d, Curve2dTypeEnum.kCircularArcCurve2d
+                ' Cria uma intenção geométrica para obter o ponto central
+                Dim intent As GeometryIntent = drawingView.Parent.CreateGeometryIntent(DrawingCurve, PointIntentEnum.kCenterPointIntent)
+
+                ' Adiciona à lista se o ponto central for válido
+                If intent.PointOnSheet IsNot Nothing Then
+                    _holes.Add(intent)
+                End If
+        End Select
+    Next
+
+    ' Exibe uma mensagem de acordo com os furos detectados
+    If _holes.Count > 0 Then
+        If Not silentMode Then
+            MsgBox("A peça contém furos!")
+        End If
+        drawSheet.ExcludeFromPrinting = False ' Ativa a folha para impressão se houver furos
+    Else
+        If Not silentMode Then
+            MsgBox("A peça não contém furos.")
+        End If
+    End If
+End Sub

@@ -1,0 +1,22 @@
+Dim categorias As New List(Of String)
+categorias.Add("00 - PR - PRODUCAO")
+categorias.Add("01 - MO - MONTAGEM")
+categorias.Add("02 - CT - CORTE TUBO")
+categorias.Add("03 - SF - SERRA FITA")
+categorias.Add("04 - LA - LASER")
+categorias.Add("05 - LD - LASER DOBRA")
+categorias.Add("06 - AL - USINAGEM ALUMINIO GERAL LIGA")
+categorias.Add("06 - AF - USINAGEM ALUMINIO EXTERNO FRIMEC")
+categorias.Add("06 - AW - USINAGEM ALUMINIO EXTERNO WELD VISION")
+categorias.Add("07 - PV - USINAGEM PLASTICO EXTERNO VINTER")
+categorias.Add("07 - PF - USINAGEM PLASTICO EXTERNO FRIMEC")
+categorias.Add("08 - PO - USINAGEM POLICARBONATO EXTERNO")
+categorias.Add("09 - US - USINAGEM LIGA")
+categorias.Add("09 - UF - USINAGEM INOX EXTERNO NA FRIMEC")
+categorias.Add("10 - CO - COMERCIAL")
+categorias.Add("11 - CS - COMERCIAL SERRA FITA")
+
+Dim defaultEntry As String = "00 - PR - PRODUCAO"
+Dim categoriaEscolhida As String = InputListBox("Selecione a Categoria:", categorias, defaultEntry, "Selecionar Categoria", "Categorias disponíveis:")
+
+iProperties.Value("Custom", "CATEGORIA") = categoriaEscolhida

@@ -1,0 +1,47 @@
+' Nome do parâmetro que será vinculado à iProperty
+Dim nomeParametro As String = "CATEGORIA"
+
+' Lista de categorias (valores para o dropdown)
+Dim categorias() As String = {
+    "00 - PR - PRODUCAO",
+    "01 - MO - MONTAGEM",
+    "02 - CT - CORTE TUBO",
+    "03 - SF - SERRA FITA",
+    "04 - LA - LASER",
+    "05 - LD - LASER DOBRA",
+    "06 - AL - USINAGEM ALUMINIO GERAL LIGA",
+    "06 - AF - USINAGEM ALUMINIO EXTERNO FRIMEC",
+    "06 - AW - USINAGEM ALUMINIO EXTERNO WELD VISION",
+    "07 - PV - USINAGEM PLASTICO EXTERNO VINTER",
+    "07 - PF - USINAGEM PLASTICO EXTERNO FRIMEC",
+    "08 - PO - USINAGEM POLICARBONATO EXTERNO",
+    "09 - US - USINAGEM LIGA",
+    "09 - UF - USINAGEM INOX EXTERNO NA FRIMEC",
+    "10 - CO - COMERCIAL",
+    "11 - CS - COMERCIAL SERRA FITA"
+}
+
+' Acessa os parâmetros do documento
+Dim userParams As UserParameters = ThisDoc.Document.ComponentDefinition.Parameters.UserParameters
+
+' Verifica se o parâmetro já existe
+Dim paramExiste As Boolean = False
+For Each p In userParams
+    If p.Name = nomeParametro Then
+        paramExiste = True
+        Exit For
+    End If
+Next
+
+' Cria o parâmetro se não existir
+If Not paramExiste Then
+    userParams.AddByValue(nomeParametro, categorias(0), UnitsTypeEnum.kTextUnits)
+End If
+
+' Aplica a lista de valores possíveis (dropdown)
+MultiValue.List(nomeParametro) = categorias
+
+' Cria ou atualiza a iProperty "CATEGORIA" com o valor atual do parâmetro
+iProperties.Value("Custom", "CATEGORIA") = Parameter(nomeParametro)
+
+MessageBox.Show("A iProperty 'CATEGORIA' foi criada com dropdown de seleção única.", "iLogic", MessageBoxButtons.OK, MessageBoxIcon.Information)

@@ -1,0 +1,152 @@
+Sub Main()
+    If TypeOf ThisDoc.Document Is DrawingDocument Then
+        Dim dwgDoc As DrawingDocument = ThisDoc.Document
+        Dim BOMStructure As Object
+        Dim refPageIndex As Integer
+        Dim pageRange As String
+        Dim pageStart As Integer
+        Dim pageEnd As Integer
+        Dim userChoice As String
+
+        ' Caixa de diálogo para escolher a opção (1 para começar de uma página até o final, 2 para intervalo específico)
+        userChoice = InputBox("Escolha uma opção: 1 para começar a partir de uma página até o final, ou 2 para intervalo específico (ex: 1-3, 10-12):", "Escolha a Opção", "1")
+        
+        ' Se a opção escolhida for 1, pergunte a página inicial
+        If userChoice = "1" Then
+            ' Caixa de diálogo para inserir o número da página inicial
+            On Error Resume Next
+            refPageIndex = CInt(InputBox("Insira o número da página a partir da qual o código será iniciado:", "Definir Página de Referência", 1))
+            On Error GoTo 0
+            
+            ' Verifica se o número da página é válido
+            If refPageIndex <= 0 Or refPageIndex > dwgDoc.Sheets.Count Then
+                MessageBox.Show("Número de página inválido. Por favor, insira um número de página válido.", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Exit Sub
+            End If
+
+            pageStart = refPageIndex
+            pageEnd = dwgDoc.Sheets.Count ' Vai até o final do documento
+
+        ' Se a opção escolhida for 2, pergunte o intervalo de páginas
+        ElseIf userChoice = "2" Then
+            ' Caixa de diálogo para inserir o intervalo de páginas (exemplo: "1-3" ou "10-12")
+            pageRange = InputBox("Insira o intervalo de páginas (ex: 1-3 ou 10-12):", "Definir Intervalo de Páginas", "1-1")
+            
+            ' Verifica se o formato do intervalo é válido
+            If Not ValidatePageRange(pageRange, pageStart, pageEnd) Then
+                MessageBox.Show("Intervalo de páginas inválido. Por favor, insira um intervalo válido como '1-3' ou '10-12'.", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Exit Sub
+            End If
+            
+            ' Verifica se o intervalo é válido
+            If pageStart <= 0 Or pageEnd > dwgDoc.Sheets.Count Or pageStart > pageEnd Then
+                MessageBox.Show("Número de página inválido. Por favor, insira um intervalo válido.", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Exit Sub
+            End If
+
+        Else
+            MessageBox.Show("Opção inválida. Por favor, insira '1' ou '2'.", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            Exit Sub
+        End If
+        
+        ' Iteração pelas folhas do desenho dentro do intervalo de páginas
+        Dim sheetCounter As Integer = 1
+        For Each dwgSheet As Sheet In dwgDoc.Sheets
+            ' Verifica se a folha atual está dentro do intervalo de páginas definido
+            If sheetCounter >= pageStart And sheetCounter <= pageEnd Then
+                ' Obtém o nome do documento referenciado na folha escolhida
+                If dwgSheet.DrawingViews.Count > 0 Then
+                    FNamePos = InStrRev(dwgSheet.DrawingViews(1).ReferencedDocumentDescriptor.FullDocumentName, "\", -1)
+                    docFName = Mid(dwgSheet.DrawingViews(1).ReferencedDocumentDescriptor.FullDocumentName, FNamePos + 1, Len(dwgSheet.DrawingViews(1).ReferencedDocumentDescriptor.FullDocumentName) - FNamePos)
+                    
+                    ' Obtém as informações necessárias da folha de referência
+                    prtNumber = SanitizeText(iProperties.Value(docFName, "Project", "Description"))
+                    stockNumber = SanitizeText(iProperties.Value(docFName, "Project", "Part number"))
+                    
+                    ' Tenta obter a categoria personalizada
+                    On Error Resume Next
+                    categoria = iProperties.Value(docFName, "Custom", "Categoria")
+                    On Error GoTo 0
+                    If categoria = "" Then
+                        categoria = "N/A" ' Define um valor padrão caso a propriedade não exista
+                    End If
+                    
+                    ' Tenta obter a propriedade personalizada "Item personalizado"
+                    On Error Resume Next
+                    itemPersonalizado = iProperties.Value(docFName, "Custom", "Item personalizado")
+                    On Error GoTo 0
+                    If itemPersonalizado = "" Then
+                        itemPersonalizado = "N/A" ' Define um valor padrão caso a propriedade não exista
+                    End If
+                    
+                    ' Lógica adicional: Verifica se as propriedades essenciais estão presentes
+                    If categoria = "N/A" Or prtNumber = "X" Or stockNumber = "X" Then
+                        MessageBox.Show("Erro: Uma ou mais propriedades essenciais estão faltando ou são inválidas. Não será possível atualizar o nome da folha.", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                        Continue For ' Pula para a próxima folha
+                    End If
+                    
+                    ' Verifica e extrai a categoria se necessário
+                    If InStr(categoria, " - ") > 0 Then
+                        Dim parts() As String
+                        parts = Split(categoria, " - ")
+                        If UBound(parts) >= 1 Then
+                            categoria = parts(1)
+                        End If
+                    End If
+                    
+                    ' Limita o prtNumber a 20 caracteres
+                    If Len(prtNumber) > 25 Then
+                        prtNumber = Left(prtNumber, 20)
+                    End If
+                    
+                    ' Atualiza o nome da folha (Adicionando "Item personalizado" após a categoria)
+                    Dim newSheetName As String = categoria & " - " & itemPersonalizado & " - " & stockNumber & " - " & prtNumber
+                    If IsAssemblyDocument(docFName) And Not newSheetName.EndsWith("ASS'Y") Then
+                        newSheetName = newSheetName & " ASS'Y"
+                    End If
+                    dwgSheet.Name = newSheetName
+                End If
+            End If
+            sheetCounter += 1
+        Next
+    End If
+End Sub
+
+' Função para validar e separar o intervalo de páginas inserido
+Function ValidatePageRange(pageRange As String, ByRef pageStart As Integer, ByRef pageEnd As Integer) As Boolean
+    Try
+        Dim parts() As String = Split(pageRange, "-")
+        If parts.Length = 2 Then
+            pageStart = CInt(parts(0))
+            pageEnd = CInt(parts(1))
+            Return True
+        End If
+    Catch ex As Exception
+        ' Se ocorrer um erro ao tentar separar ou converter as páginas, retorna False
+        Return False
+    End Try
+    Return False
+End Function
+
+Function SanitizeText(inputText As String) As String
+    On Error GoTo HandleError
+    Dim sanitizedText As String
+    sanitizedText = inputText
+    Dim i As Integer
+    ' Substitui caracteres especiais por "."
+    For i = 1 To Len(sanitizedText)
+        If Not Mid(sanitizedText, i, 1) Like "[A-Za-z0-9 ]" Then
+            sanitizedText = Replace(sanitizedText, Mid(sanitizedText, i, 1), ".")
+        End If
+    Next i
+    SanitizeText = sanitizedText
+    Exit Function
+HandleError:
+    ' Retorna "X" em caso de erro
+    SanitizeText = "X"
+End Function
+
+Function IsAssemblyDocument(docName As String) As Boolean
+    Dim fileExtension As String = System.IO.Path.GetExtension(docName).ToUpper()
+    Return fileExtension = ".IAM"
+End Function

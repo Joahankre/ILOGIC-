@@ -1,0 +1,61 @@
+' Verifica se o documento atual é um desenho
+If ThisApplication.ActiveDocumentType <> DocumentTypeEnum.kDrawingDocumentObject Then
+    MessageBox.Show("Este código deve ser executado em um arquivo de desenho (.idw)", "Aviso")
+    Return
+End If
+
+Dim oDrawDoc As DrawingDocument = ThisApplication.ActiveDocument
+Dim oSheet As Sheet = oDrawDoc.ActiveSheet
+
+If oSheet.DrawingViews.Count = 0 Then
+    MessageBox.Show("A folha ativa não contém vistas.", "Erro")
+    Return
+End If
+
+Dim oView As DrawingView = oSheet.DrawingViews.Item(1)
+
+Dim oRefDoc As Document = Nothing
+
+Try
+    oRefDoc = oView.ReferencedDocumentDescriptor.ReferencedDocument
+Catch ex As Exception
+    MessageBox.Show("Erro ao acessar o modelo referenciado: " & ex.Message, "Erro")
+    Return
+End Try
+
+If oRefDoc Is Nothing Then
+    MessageBox.Show("Modelo referenciado não encontrado ou não carregado.", "Erro")
+    Return
+End If
+
+' Lista para seleção
+Dim categorias As New List(Of String) From {
+    "00 - PR - PRODUCAO",
+    "01 - MO - MONTAGEM",
+    "02 - CT - CORTE TUBO",
+    "03 - SF - SERRA FITA",
+    "04 - LA - LASER",
+    "05 - LD - LASER DOBRA",
+    "06 - AL - USINAGEM ALUMINIO GERAL LIGA",
+    "06 - AF - USINAGEM ALUMINIO EXTERNO FRIMEC",
+    "06 - AW - USINAGEM ALUMINIO EXTERNO WELD VISION",
+    "07 - PV - USINAGEM PLASTICO EXTERNO VINTER",
+    "07 - PF - USINAGEM PLASTICO EXTERNO FRIMEC",
+    "08 - PO - USINAGEM POLICARBONATO EXTERNO",
+    "09 - US - USINAGEM LIGA",
+    "09 - UF - USINAGEM INOX EXTERNO NA FRIMEC",
+    "10 - CO - COMERCIAL",
+    "11 - CS - COMERCIAL SERRA FITA"
+}
+
+Dim escolha As String = InputListBox("Escolha a categoria:", categorias, categorias(0), "Categoria", "Selecione uma opção")
+
+' Define ou atualiza a iProperty personalizada "CATEGORIA"
+Try
+    oRefDoc.PropertySets.Item("Inventor User Defined Properties").Item("CATEGORIA").Value = escolha
+Catch
+    ' Se não existir, cria a propriedade
+    oRefDoc.PropertySets.Item("Inventor User Defined Properties").Add(escolha, "CATEGORIA")
+End Try
+
+MessageBox.Show("Categoria aplicada ao modelo referenciado com sucesso!", "Sucesso")

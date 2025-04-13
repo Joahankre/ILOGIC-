@@ -1,0 +1,43 @@
+Option Explicit On
+
+Sub Main
+	Dim oDoc As DrawingDocument
+	oDoc = ThisDoc.Document
+
+	' Set a reference to the active sheet
+	Dim oSheet As Sheet
+	oSheet = oDoc.ActiveSheet
+
+	Dim oDrawingDim As DrawingDimension
+	Dim oDimsToBeArranged As ObjectCollection
+	'Dim oOrdinateDimsToBeArranged As ObjectCollection
+
+	' Iterate over all dimensions in the drawing and
+	' center them if they are linear or angular.
+	' Add them to the ObjectCollection to be arranged
+
+	Dim oDrawingDimensions = oSheet.DrawingDimensions
+
+	oDimsToBeArranged = ThisApplication.TransientObjects.CreateObjectCollection
+
+	For Each oDrawingDim In oDrawingDimensions
+		If TypeOf oDrawingDim Is LinearGeneralDimension Then
+			oDrawingDim.CenterText
+			Dim oLinDim As LinearGeneralDimension = oDrawingDim
+			If oLinDim.DimensionType = DimensionTypeEnum.kHorizontalDimensionType Or oLinDim.DimensionType = DimensionTypeEnum.kVerticalDimensionType Then
+				If Not (oLinDim.IsBaselineSetMember Or oLinDim.IsChainSetMember) Then
+					oDimsToBeArranged.Add(oDrawingDim)
+				End If
+			End If
+		ElseIf TypeOf oDrawingDim Is OrdinateDimension Then
+			Dim ordDim As OrdinateDimension = oDrawingDim
+			If Not ordDim.IsOrdinateSetMember Then
+				oDimsToBeArranged.Add(oDrawingDim)
+			End If
+		End If
+	Next
+
+	If oDimsToBeArranged.Count > 0 Then
+		oDrawingDimensions.Arrange(oDimsToBeArranged)
+	End If
+End Sub 

@@ -1,0 +1,13 @@
+Sub Main()
+	Dim oAsmDoc As AssemblyDocument = ThisApplication.ActiveDocument
+	Dim output As String = "Lista de documentos referenciados:" & vbCrLf & vbCrLf
+
+	For Each refDoc As Document In oAsmDoc.AllReferencedDocuments
+		output &= "Nome: " & refDoc.DisplayName & vbCrLf
+		output &= "Tipo: " & refDoc.DocumentType.ToString() & vbCrLf
+		output &= "Caminho: " & refDoc.FullFileName & vbCrLf
+		output &= "----------------------" & vbCrLf
+	Next
+
+	MessageBox.Show(output, "AllReferencedDocuments")
+End Sub

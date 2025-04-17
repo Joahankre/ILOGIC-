@@ -1,0 +1,34 @@
+Sub Main()
+    Dim oAsmDoc As AssemblyDocument = ThisApplication.ActiveDocument
+    Dim output As String = "ESTRUTURA HIERÁRQUICA DA MONTAGEM:" & vbCrLf & vbCrLf
+
+    Call PercorrerComponentes(oAsmDoc.ComponentDefinition.Occurrences, 0, output)
+
+    ' Mostrar na tela
+    MessageBox.Show(output, "Estrutura da Montagem")
+
+    ' Exportar para .txt
+    Dim caminhoTxt As String = "C:\Temp\Estrutura_Montagem.txt"
+    System.IO.File.WriteAllText(caminhoTxt, output)
+    MessageBox.Show("Estrutura salva em: " & caminhoTxt)
+End Sub
+
+Sub PercorrerComponentes(oOccurrences As ComponentOccurrences, nivel As Integer, ByRef output As String)
+    For Each oComp As ComponentOccurrence In oOccurrences
+        ' Ignora peças do Content Center
+        If oComp.Definition.Document.FullFileName.Contains("Content Center") Then Continue For
+
+        ' Indentação por nível
+        Dim indent As String = New String(" "c, nivel * 4)
+
+        output &= indent & "- " & oComp.Name & " (" & oComp.Definition.Document.DisplayName & ")" & vbCrLf
+
+        ' Se for uma submontagem, percorrer seus componentes
+        If TypeOf oComp.Definition Is AssemblyComponentDefinition Then
+            Dim subOccurrences As ComponentOccurrences = CType(oComp.Definition, AssemblyComponentDefinition).Occurrences
+            If subOccurrences.Count > 0 Then
+                Call PercorrerComponentes(subOccurrences, nivel + 1, output)
+            End If
+        End If
+    Next
+End Sub

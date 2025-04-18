@@ -1,0 +1,228 @@
+Imports System.IO
+
+'1 Dark
+'2 Deep Blue
+'3 Forest
+'4 High Contrast
+'5 Light
+'6 Millennium
+'7 Presentation
+'8 Sky
+'9 Winter Day
+'10 Winter Night
+'11 Wonderland
+
+'52737 1 Color
+'52738 Grandient
+
+
+'3 Background Image
+' Import the necessary namespace
+ Dim filePath As String = "C:\Users\PC\Desktop\TESTE\TBackgroundColor.txt"
+ Dim content As String
+
+
+If System.IO.File.Exists(filePath) Then
+    'MessageBox.Show("The file exists.")
+Else
+	 ' Create an empty file
+    System.IO.File.Create(filePath).Dispose()
+   ' MessageBox.Show("The file does not exist.")
+End If
+
+ Dim content2 As String = System.IO.File.ReadAllText(filePath)
+
+Dim oCSchemes As ColorSchemes = ThisApplication.ColorSchemes
+Dim Colorcode As String
+Dim ColorSchemesNr As String
+Dim ColorBackground As String
+
+
+If ThisApplication.ActiveColorScheme Is oCSchemes("Presentation") Then
+	
+	If (content2 = "1-52737") Then
+		ThisApplication.ColorSchemes.Item("Dark").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52737
+	End If 
+	
+	If (content2 = "2-52737") Then
+		ThisApplication.ColorSchemes.Item("Deep Blue").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52737
+	End If 
+	
+	If (content2 = "3-52737") Then
+		ThisApplication.ColorSchemes.Item("Forest").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52737
+	End If 
+	
+	If (content2 = "4-52737") Then
+		ThisApplication.ColorSchemes.Item("High Contrast").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52737
+	End If 
+	
+	If (content2 = "5-52737") Then
+		ThisApplication.ColorSchemes.Item("Light").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52737
+	End If 
+	
+	If (content2 = "6-52737") Then
+		ThisApplication.ColorSchemes.Item("Millennium").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52737
+	End If 
+	
+	If (content2 = "8-52737") Then
+		ThisApplication.ColorSchemes.Item("Sky").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52737
+	End If 
+	
+	If (content2 = "9-52737") Then
+		ThisApplication.ColorSchemes.Item("Winter Day").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52737
+	End If 
+	
+	If (content2 = "10-52737") Then
+		ThisApplication.ColorSchemes.Item("Winter Night").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52737
+	End If 
+	
+	If (content2 = "11-52737") Then
+		ThisApplication.ColorSchemes.Item("Wonderland").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52737
+	End If 
+	
+	'not one color
+	If (content2 = "1-52738") Then
+		ThisApplication.ColorSchemes.Item("Dark").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52738
+	End If 
+	
+	If (content2 = "2-52738") Then
+		ThisApplication.ColorSchemes.Item("Deep Blue").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52738
+	End If 
+	
+	If (content2 = "3-52738") Then
+		ThisApplication.ColorSchemes.Item("Forest").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52738
+	End If 
+	
+	If (content2 = "4-52738") Then
+		ThisApplication.ColorSchemes.Item("High Contrast").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52738
+	End If 
+	
+	If (content2 = "5-52738") Then
+		ThisApplication.ColorSchemes.Item("Light").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52738
+	End If 
+	
+	If (content2 = "6-52738") Then
+		ThisApplication.ColorSchemes.Item("Millennium").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52738
+	End If 
+	
+	If (content2 = "8-52738") Then
+		ThisApplication.ColorSchemes.Item("Sky").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52738
+	End If 
+	
+	If (content2 = "9-52738") Then
+		ThisApplication.ColorSchemes.Item("Winter Day").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52738
+	End If 
+	
+	If (content2 = "10-52738") Then
+		ThisApplication.ColorSchemes.Item("Winter Night").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52738
+	End If 
+	
+	If (content2 = "11-52738") Then
+		ThisApplication.ColorSchemes.Item("Wonderland").Activate
+		ThisApplication.ColorSchemes.BackgroundType = 52738
+	End If 
+	
+	
+	Else
+ColorSchemesNr = ThisApplication.ColorSchemes.BackgroundType
+If ThisApplication.ActiveColorScheme Is oCSchemes("Dark") Then
+	
+ColorSchemesNr = "1"
+ColorBackground = ThisApplication.ColorSchemes.BackgroundType
+End If 
+If ThisApplication.ActiveColorScheme Is oCSchemes("Deep Blue") Then
+	ColorSchemesNr  = "2"
+	ColorBackground = ThisApplication.ColorSchemes.BackgroundType
+	content = ColorSchemesNr.ToString & "-" & ColorBackground.ToString
+	ThisApplication.ColorSchemes.Item("Presentation").Activate
+        ThisApplication.ColorSchemes.BackgroundType = 52737
+End If 
+If ThisApplication.ActiveColorScheme Is oCSchemes("Forest") Then
+	ColorSchemesNr  = "3"
+	ColorBackground = ThisApplication.ColorSchemes.BackgroundType
+	content = ColorSchemesNr.ToString & "-" & ColorBackground.ToString
+	ThisApplication.ColorSchemes.Item("Presentation").Activate
+        ThisApplication.ColorSchemes.BackgroundType = 52737
+End If 
+If ThisApplication.ActiveColorScheme Is oCSchemes("High Contrast") Then
+	ColorSchemesNr = "4"
+	ColorBackground = ThisApplication.ColorSchemes.BackgroundType
+	content = ColorSchemesNr.ToString & "-" & ColorBackground.ToString
+	ThisApplication.ColorSchemes.Item("Presentation").Activate
+        ThisApplication.ColorSchemes.BackgroundType = 52737
+End If 
+If ThisApplication.ActiveColorScheme Is oCSchemes("Light") Then
+	ColorSchemesNr  = "5"
+	ColorBackground = ThisApplication.ColorSchemes.BackgroundType
+	content = ColorSchemesNr.ToString & "-" & ColorBackground.ToString
+	ThisApplication.ColorSchemes.Item("Presentation").Activate
+        ThisApplication.ColorSchemes.BackgroundType = 52737
+End If 
+If ThisApplication.ActiveColorScheme Is oCSchemes("Millennium") Then
+	ColorSchemesNr  = "6"
+	ColorBackground = ThisApplication.ColorSchemes.BackgroundType
+	content = ColorSchemesNr.ToString & "-" & ColorBackground.ToString
+	ThisApplication.ColorSchemes.Item("Presentation").Activate
+        ThisApplication.ColorSchemes.BackgroundType = 52737
+End If 
+If ThisApplication.ActiveColorScheme Is oCSchemes("Sky") Then
+	ColorSchemesNr  = "8"
+	ColorBackground = ThisApplication.ColorSchemes.BackgroundType
+	content = ColorSchemesNr.ToString & "-" & ColorBackground.ToString
+	ThisApplication.ColorSchemes.Item("Presentation").Activate
+        ThisApplication.ColorSchemes.BackgroundType = 52737
+End If 
+If ThisApplication.ActiveColorScheme Is oCSchemes("Winter Day") Then
+	ColorSchemesNr  = "9"
+	ColorBackground = ThisApplication.ColorSchemes.BackgroundType
+	content = ColorSchemesNr.ToString & "-" & ColorBackground.ToString
+	ThisApplication.ColorSchemes.Item("Presentation").Activate
+        ThisApplication.ColorSchemes.BackgroundType = 52737
+End If 
+If ThisApplication.ActiveColorScheme Is oCSchemes("Winter Night") Then
+	ColorSchemesNr  = "10"
+ 	ColorBackground = ThisApplication.ColorSchemes.BackgroundType
+	content = ColorSchemesNr.ToString & "-" & ColorBackground.ToString
+	ThisApplication.ColorSchemes.Item("Presentation").Activate
+        ThisApplication.ColorSchemes.BackgroundType = 52737
+End If 
+If ThisApplication.ActiveColorScheme Is oCSchemes("Wonderland") Then
+	ColorSchemesNr  = "11"
+    ColorBackground = ThisApplication.ColorSchemes.BackgroundType
+	content = ColorSchemesNr.ToString & "-" & ColorBackground.ToString
+	ThisApplication.ColorSchemes.Item("Presentation").Activate
+        ThisApplication.ColorSchemes.BackgroundType = 52737
+End If 
+
+End If 
+
+
+Try
+	
+    System.IO.File.WriteAllText(filePath, content)
+   ' MessageBox.Show("File written successfully.")
+Catch ex As Exception
+   ' MessageBox.Show("Error writing to file: " & ex.Message)
+   
+   ThisApplication.ColorSchemes.Item("Presentation").Activate
+        ThisApplication.ColorSchemes.BackgroundType = 52737
+End Try

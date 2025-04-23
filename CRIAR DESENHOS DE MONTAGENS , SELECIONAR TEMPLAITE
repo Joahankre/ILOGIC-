@@ -1,0 +1,98 @@
+Imports Inventor.ViewOrientationTypeEnum
+Imports Inventor.DrawingViewStyleEnum
+Imports System.IO
+Imports System.Windows.Forms
+
+Private Sub Main()
+    CriarDesenhosAPartirDoConjunto(ThisDoc.Document)
+End Sub
+
+Private Sub CriarDesenhosAPartirDoConjunto(ByVal oDoc As Inventor.Document)
+    ' Modo de criação de apenas um único desenho para o conjunto inteiro
+    Dim criarDesenhoUnico As Boolean = True
+    
+    Dim oDocumentoDesenho As DrawingDocument	   
+    Dim oFolha As Sheet
+    Dim oVistaBase As DrawingView
+    Dim oVista2 As DrawingView
+    Dim oVista3 As DrawingView
+    Dim oVista4 As DrawingView 
+
+    Dim EscalaVista As Double = 1/10
+
+    Dim dwgQuery As Integer = MsgBox("Deseja criar desenhos a partir deste conjunto?", vbYesNo, "Seleção de Desenho")
+    
+    If dwgQuery = vbYes Then
+        Dim oConjunto As Inventor.AssemblyDocument
+
+        If oDoc.DocumentType = Inventor.DocumentTypeEnum.kAssemblyDocumentObject Then
+            oConjunto = CType(oDoc, AssemblyDocument)
+
+            ' Seleção manual do template de desenho usando OpenFileDialog
+            Dim openFileDialog As New System.Windows.Forms.OpenFileDialog()
+            openFileDialog.Title = "Selecione o Template de Desenho"
+            openFileDialog.Filter = "Templates de Desenho (*.idw;*.dwg)|*.idw;*.dwg"
+
+            Dim templatePath As String = ""
+
+            If openFileDialog.ShowDialog() = System.Windows.Forms.DialogResult.OK Then
+                templatePath = openFileDialog.FileName
+            Else
+                MsgBox("Operação cancelada. Nenhum template foi selecionado.", vbExclamation)
+                Exit Sub
+            End If
+
+            If criarDesenhoUnico Then
+                oDocumentoDesenho = ThisApplication.Documents.Add( _
+                    DocumentTypeEnum.kDrawingDocumentObject, _
+                    TemplateFileName:=templatePath, _
+                    CreateVisible:=True)
+            End If
+
+            ' Salva a primeira folha como modelo para cópia
+            Dim folhaModelo As Sheet = oDocumentoDesenho.Sheets.Item(1)
+
+            For Each refDoc As Document In oConjunto.AllReferencedDocuments
+                If refDoc.FullFileName.Contains("Content Center") Then Continue For
+
+                If criarDesenhoUnico Then
+                    ' Copia a folha modelo e a adiciona ao desenho
+                    Dim docTemporario As DrawingDocument = Nothing
+                    docTemporario = ThisApplication.Documents.Add(DocumentTypeEnum.kDrawingDocumentObject, , False)
+                    
+                    folhaModelo.CopyTo(docTemporario).CopyTo(oDocumentoDesenho)
+
+                    ' Fecha o documento temporário
+                    If Not docTemporario Is Nothing Then
+                        docTemporario.Close(True)
+                    End If
+
+                    ' Seleciona a última folha adicionada
+                    oFolha = oDocumentoDesenho.Sheets.Item(oDocumentoDesenho.Sheets.Count)
+                    oFolha.Name = IO.Path.GetFileNameWithoutExtension(refDoc.FullFileName)
+                Else
+                    oDocumentoDesenho = ThisApplication.Documents.Add( _
+                        DocumentTypeEnum.kDrawingDocumentObject, _
+                        TemplateFileName:=templatePath, _
+                        CreateVisible:=True)
+                    oFolha = oDocumentoDesenho.Sheets.Item(1)
+                End If
+
+                ' Define os pontos para as quatro vistas
+                Dim oPonto1 = ThisApplication.TransientGeometry.CreatePoint2d(11, 11) ' BASE
+                Dim oPonto2 = ThisApplication.TransientGeometry.CreatePoint2d(28, 11) ' DIREITA
+                Dim oPonto3 = ThisApplication.TransientGeometry.CreatePoint2d(11, 20) ' SUPERIOR
+                Dim oPonto4 = ThisApplication.TransientGeometry.CreatePoint2d(28, 20) ' ISOMÉTRICA
+
+                ' Cria a vista base e as vistas projetadas
+                oVistaBase = oFolha.DrawingViews.AddBaseView( _
+                    refDoc, oPonto1, EscalaVista, _
+                    kFrontViewOrientation, DrawingViewStyleEnum.kHiddenLineRemovedDrawingViewStyle)
+
+                oVista2 = oFolha.DrawingViews.AddProjectedView(oVistaBase, oPonto2, DrawingViewStyleEnum.kFromBaseDrawingViewStyle, EscalaVista)
+                oVista3 = oFolha.DrawingViews.AddProjectedView(oVistaBase, oPonto3, DrawingViewStyleEnum.kFromBaseDrawingViewStyle, EscalaVista)
+                oVista4 = oFolha.DrawingViews.AddProjectedView(oVistaBase, oPonto4, DrawingViewStyleEnum.kFromBaseDrawingViewStyle, EscalaVista)
+            Next
+        End If
+    End If
+End Sub

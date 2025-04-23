@@ -79,10 +79,10 @@ Private Sub CriarDesenhosAPartirDoConjunto(ByVal oDoc As Inventor.Document)
                 End If
 
                 ' Define os pontos para as quatro vistas
-                Dim oPonto1 = ThisApplication.TransientGeometry.CreatePoint2d(11, 11) ' BASE
-                Dim oPonto2 = ThisApplication.TransientGeometry.CreatePoint2d(28, 11) ' DIREITA
-                Dim oPonto3 = ThisApplication.TransientGeometry.CreatePoint2d(11, 20) ' SUPERIOR
-                Dim oPonto4 = ThisApplication.TransientGeometry.CreatePoint2d(28, 20) ' ISOMÉTRICA
+                Dim oPonto1 = ThisApplication.TransientGeometry.CreatePoint2d(10, 25) ' BASE
+                Dim oPonto2 = ThisApplication.TransientGeometry.CreatePoint2d(30, 20) ' DIREITA
+                Dim oPonto3 = ThisApplication.TransientGeometry.CreatePoint2d(10, 10) ' SUPERIOR
+                Dim oPonto4 = ThisApplication.TransientGeometry.CreatePoint2d(30, 10) ' ISOMÉTRICA
 
                 ' Cria a vista base e as vistas projetadas
                 oVistaBase = oFolha.DrawingViews.AddBaseView( _
